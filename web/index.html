@@ -810,7 +810,6 @@ es.onmessage = ev => {
   }
   while (st.states.length && st.states[0][0] < d.t_mono - 60) st.states.shift();
   drawTimeline(d.t_mono);
-  updateTrace();
   drawSpark();
 };
 const STATE_COLORS = { ABSENT: "#3ee27f", PRESENT_STILL: "#ffb547", ACTIVE: "#ff5a6a" };
@@ -877,39 +876,6 @@ function actNode(x, color, shape, text) {
 const aRouter = actNode(-LX, 0x3ee27f, new THREE.OctahedronGeometry(0.26, 0), "Router");
 const aMac = actNode(LX, 0xe6eefc, new THREE.IcosahedronGeometry(0.2, 2), "MacBook");
 
-// live RSSI trace riding above the link: last 12 s of real samples, newest arriving at the Mac.
-// Height = deviation from the window mean (0.12 units per dB). This is the measured signal, not a position.
-const TRACE_S = 12, TN = 160, traceY = 2.05, DBU = 0.12;
-const trGeo = new THREE.BufferGeometry(); trGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(TN * 3), 3));
-const trace = new THREE.Line(trGeo, new THREE.LineBasicMaterial({ color: 0x9fc3ff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
-const trGlow = new THREE.Line(trGeo, new THREE.LineBasicMaterial({ color: 0x4d8dff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
-trGlow.position.y = 0.025;                     // doubled line reads as a thicker stroke under bloom
-const trBase = new THREE.Line(new THREE.BufferGeometry().setFromPoints([V(-LX, traceY, 0), V(LX, traceY, 0)]),
-  new THREE.LineDashedMaterial({ color: 0x8196b6, dashSize: 0.08, gapSize: 0.08, transparent: true, opacity: 0.35 })); trBase.computeLineDistances();
-const trLbl = pill("RSSI · son 12 s", "#a9b9d3"); trLbl.position.set(0, traceY + 1.35, 0); trLbl.scale.multiplyScalar(0.8);
-let trVal = null;
-act.add(trace, trGlow, trBase, trLbl);
-let trValText = "";
-function updateTrace() {
-  const now = st.times.at(-1); if (now == null) return;
-  const win = []; for (let i = 0; i < st.times.length; i++) if (st.times[i] >= now - TRACE_S && Number.isFinite(st.rssi[i])) win.push([st.times[i], st.rssi[i]]);
-  if (win.length < 2) return;
-  const mean = win.reduce((a, p) => a + p[1], 0) / win.length, arr = trGeo.attributes.position.array;
-  let j = 0;
-  for (let i = 0; i < TN; i++) {                        // sample-and-hold at TN evenly spaced times (RSSI is stepwise)
-    const tt = now - TRACE_S + i / (TN - 1) * TRACE_S;
-    while (j + 1 < win.length && win[j + 1][0] <= tt) j++;
-    const r = tt < win[0][0] ? win[0][1] : win[j][1];
-    arr[i * 3] = -LX + i / (TN - 1) * 2 * LX; arr[i * 3 + 1] = traceY + Math.max(-1.2, Math.min(1.2, (r - mean) * DBU)); arr[i * 3 + 2] = 0;
-  }
-  trGeo.attributes.position.needsUpdate = true;
-  const txt = `${win.at(-1)[1]} dBm`;
-  if (txt !== trValText) {
-    if (trVal) { act.remove(trVal); trVal.material.map.dispose(); trVal.material.dispose(); }
-    trValText = txt; trVal = pill(txt, "#e6eefc"); trVal.position.set(LX, traceY + 0.45, 0); act.add(trVal);
-  }
-}
-
 // state-change burst: an elliptical ring enclosing the whole link expands once (not a point → no location implied)
 const bursts = [];
 let lastState = null;
@@ -923,8 +889,7 @@ function animateActivity(t, dt, A, I) {
   const sc = st.sceneCol;
   aRouter.body.material.color.copy(sc); aRouter.halo.material.color.copy(sc);
   for (const n of [aRouter, aMac]) { n.shell.rotation.y += dt * 0.5; n.shell.rotation.x += dt * 0.2; n.body.scale.setScalar(1 + 0.07 * Math.sin(t * 2.6)); }
-  aMac.halo.material.opacity = 0.6 + 0.3 * I;
-  trace.material.color.copy(blue).lerp(sc, 0.5 + 0.5 * Math.max(I, A)); trGlow.material.color.copy(trace.material.color);
+  aMac.halo.material.opacity = 0.4 + 0.25 * I; aRouter.halo.material.opacity = 0.5;
   for (let i = bursts.length - 1; i >= 0; i--) {
     const m = bursts[i]; m.userData.t += dt / 1.6; const u = m.userData.t;
     m.scale.setScalar(1 + u * 1.6); m.material.opacity = 0.9 * (1 - u) ** 1.5;
@@ -935,7 +900,7 @@ function animateActivity(t, dt, A, I) {
 // bloom: soft glow on additive elements (both views)
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.65, 0.45, 0.2);
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.4, 0.4, 0.3);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
@@ -960,7 +925,7 @@ renderer.setAnimationLoop(() => {
   st.sceneCol.lerp(st.stateCol, Math.min(1, dt * 3));
   st.attenS += (st.atten - st.attenS) * Math.min(1, dt * 3);
   const A = st.attenS;
-  beam.material.opacity = 0.9 - 0.75 * A + 0.1 * Math.sin(t * 20) * A;
+  beam.material.opacity = 0.65 - 0.5 * A + 0.08 * Math.sin(t * 20) * A;
   beam.material.color.copy(st.sceneCol);
   glow.material.color.copy(st.sceneCol);
   glow.material.opacity = 0.18 + 0.25 * A * (0.6 + 0.4 * Math.sin(t * 6));
