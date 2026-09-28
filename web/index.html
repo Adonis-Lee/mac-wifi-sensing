@@ -51,6 +51,7 @@
   <div class="row">PHY <b id="phy">--</b></div>
   <div class="row">rate (actual) <b id="rate">--</b></div>
   <div class="row">read / proc <b id="lat">--</b></div>
+  <div class="row">server CPU / RAM <b id="perf">--</b></div>
   <div id="state">STATE: --</div>
   <div class="row">confidence <b id="conf">--</b></div>
   <canvas id="timeline"></canvas>
@@ -180,6 +181,7 @@ es.onmessage = ev => {
   $("snr").textContent = d.associated ? (d.rssi_dbm - d.noise_dbm) + " dB" : "--";
   $("ch").textContent = `${d.channel} (${d.band})`;
   $("phy").textContent = d.phy_mode;
+  if (d.perf) $("perf").textContent = `${d.perf.cpu_pct.toFixed(1)} % / ${d.perf.rss_mb.toFixed(0)} MB`;
   $("lat").textContent = `${d.read_ms.toFixed(1)} / ${d.proc_ms.toFixed(2)} ms`;
   st.times.push(d.t_mono); st.rssi.push(d.associated ? d.rssi_dbm : NaN);
   while (st.times.length && st.times[0] < d.t_mono - 60) { st.times.shift(); st.rssi.shift(); }

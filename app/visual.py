@@ -6,6 +6,8 @@ Replay: python -m app.visual --replay data/raw/<file>.csv   (recorded real data,
 from __future__ import annotations
 
 import argparse
+import os
+import resource
 import csv
 import json
 import threading
@@ -60,13 +62,21 @@ def collector(hub: Hub, hz: float, replay: Path | None = None) -> None:
     meter = ActivityMeter(hz, calibration=load_calibration())
     rules = load_rules()
     clf = LiveClassifier(hz, rules) if rules else None
+    c0 = os.times()
+    perf = {"t": time.monotonic(), "cpu": c0.user + c0.system, "cpu_pct": 0.0, "rss_mb": 0.0}
     try:
         source = replay_stream(replay) if replay else MacRSSIBackend().stream(hz)
         for s in source:
             t0 = time.perf_counter()
             act = meter.update(s.rssi_dbm) if s.associated else None
             state = clf.update(s.rssi_dbm) if clf and s.associated else None
-            hub.publish({**asdict(s), "associated": s.associated, "activity": act, "state": state,
+            now = time.monotonic()
+            cpu = os.times()
+            if now - perf["t"] >= 2:
+                perf["cpu_pct"] = 100 * (cpu.user + cpu.system - perf["cpu"]) / (now - perf["t"])
+                perf.update(t=now, cpu=cpu.user + cpu.system)
+            perf["rss_mb"] = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20  # bytes on macOS
+            hub.publish({**asdict(s), "perf": dict(cpu_pct=perf["cpu_pct"], rss_mb=perf["rss_mb"]), "associated": s.associated, "activity": act, "state": state,
                          "source": f"REPLAY {replay.name}" if replay else "LIVE",
                          "proc_ms": (time.perf_counter() - t0) * 1000})
     except Exception as e:
