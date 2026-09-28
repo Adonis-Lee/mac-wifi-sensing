@@ -28,7 +28,8 @@ def next_path(prefix: str = "mac_rssi") -> Path:
     return p
 
 
-def record(hz: float, duration: float, meta: dict) -> Path:
+def record(hz: float, duration: float, meta: dict, on_sample=None, cancel=None) -> Path:
+    """on_sample(n, count, sample) is called per sample; cancel() -> True stops early."""
     path = next_path()
     count = int(round(hz * duration))
     backend = MacRSSIBackend()
@@ -44,6 +45,11 @@ def record(hz: float, duration: float, meta: dict) -> Path:
                 first = first or s
                 last = s
                 n += 1
+                if on_sample:
+                    on_sample(n, count, s)
+                if cancel and cancel():
+                    meta["note"] = (meta.get("note", "") + " [cancelled]").strip()
+                    break
                 if n % max(1, int(hz)) == 0:
                     print(f"\r  {n}/{count}  RSSI {s.rssi_dbm:4d} dBm  noise {s.noise_dbm} dBm  ch {s.channel}",
                           end="", flush=True)

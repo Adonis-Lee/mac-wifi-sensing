@@ -16,7 +16,10 @@
     --font-ui:"Fira Sans",system-ui,-apple-system,sans-serif; --font-num:"Fira Code",ui-monospace,Menlo,monospace;
     --shadow:0 10px 30px rgba(0,0,0,.45);
   }
-  * { box-sizing:border-box; }
+  [hidden] { display:none !important; }
+  * { box-sizing:border-box; scrollbar-width:thin; scrollbar-color:rgba(148,178,230,.25) transparent; }
+  ::-webkit-scrollbar { width:8px; } ::-webkit-scrollbar-thumb { background:rgba(148,178,230,.25); border-radius:8px; }
+  ::-webkit-scrollbar-track { background:transparent; }
   html,body { margin:0; height:100%; background:var(--bg); color:var(--txt); font:14px/1.5 var(--font-ui); overflow:hidden; }
   canvas#gl { position:fixed; inset:0; width:100%; height:100%; display:block; }
   .num { font-family:var(--font-num); font-variant-numeric:tabular-nums; }
@@ -50,7 +53,7 @@
   button:focus-visible, summary:focus-visible { outline:2px solid var(--info); outline-offset:2px; }
 
   /* side rails */
-  #rails { position:fixed; top:88px; bottom:96px; left:16px; right:16px; pointer-events:none;
+  #rails { position:fixed; top:88px; bottom:124px; left:16px; right:16px; pointer-events:none;
            display:flex; justify-content:space-between; gap:var(--gap); }
   #rails > aside { pointer-events:auto; width:292px; padding:16px; overflow:auto; max-height:100%; align-self:flex-start; }
   .big { display:flex; align-items:baseline; gap:6px; }
@@ -91,6 +94,67 @@
   #sys { padding:10px 14px; width:292px; }
   #sys .row { padding:2px 0; font-size:12px; }
 
+  /* devices rail */
+  .count { margin-left:auto; font:600 11px var(--font-num); color:var(--txt-2); background:rgba(255,255,255,.06); padding:2px 7px; border-radius:99px; }
+  .devhero { display:flex; gap:12px; align-items:center; }
+  .devhero b { font-size:30px; font-weight:600; display:block; line-height:1.1; }
+  .devhero span:not(.dot) { font-size:12px; color:var(--txt-2); }
+  .dot.big { width:14px; height:14px; box-shadow:0 0 12px var(--ok); }
+  .devlist { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+  .devlist li { display:grid; grid-template-columns:10px 1fr auto; gap:4px 10px; align-items:center; font-size:12.5px; color:var(--txt-2);
+                padding:4px 2px; border-radius:6px; cursor:default; }
+  .devlist li:hover, .devlist li.hl { background:rgba(255,255,255,.05); color:var(--txt); }
+  .devlist li .dot { width:10px; height:10px; margin:0; }
+  .devlist li b { font:500 12.5px var(--font-num); color:var(--txt); }
+  .devlist li .sbar { grid-column:2 / 4; height:4px; border-radius:9px; background:rgba(255,255,255,.06); overflow:hidden; }
+  .devlist li .sbar i { display:block; height:100%; border-radius:inherit; }
+  .devlist .empty { color:var(--dim); display:block; }
+  #tip { position:fixed; z-index:5; pointer-events:none; background:var(--surface-2); border:1px solid var(--border-strong); border-radius:10px;
+         padding:8px 12px; font-size:12.5px; box-shadow:var(--shadow); min-width:170px; }
+  #tip b { display:block; font-size:13px; margin-bottom:2px; }
+  #tip span { display:block; color:var(--txt-2); font-family:var(--font-num); }
+  #banner.clickable { cursor:pointer; }
+
+  /* settings dialog */
+  dialog#settings { border:1px solid var(--border-strong); border-radius:16px; background:#0b1322; color:var(--txt); padding:0;
+                    width:min(560px, calc(100vw - 32px)); box-shadow:0 30px 80px rgba(0,0,0,.6); }
+  dialog#settings::backdrop { background:rgba(2,4,8,.6); backdrop-filter:blur(4px); }
+  .dlg-h { display:flex; align-items:center; justify-content:space-between; padding:14px 16px 14px 20px; border-bottom:1px solid var(--border); }
+  .dlg-h h2 { margin:0; font-size:16px; display:flex; gap:10px; align-items:center; }
+  .dlg-s { padding:18px 20px; }
+  .dlg-s + .dlg-s { border-top:1px solid var(--border); }
+  .dlg-s h3 { margin:0 0 6px; font-size:14px; }
+  .help { margin:0 0 14px; color:var(--txt-2); font-size:13px; }
+  .help code { font-family:var(--font-num); font-size:12px; background:rgba(255,255,255,.06); padding:1px 5px; border-radius:4px; }
+  .fields { display:grid; grid-template-columns:1fr 1fr 1.3fr; gap:10px; }
+  .fields label { display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--txt-2); }
+  .fields select, .fields input { font:500 14px var(--font-ui); color:var(--txt); background:rgba(255,255,255,.05); border:1px solid var(--border-strong);
+           border-radius:8px; min-height:40px; padding:0 10px; }
+  .fields select:focus-visible, .fields input:focus-visible { outline:2px solid var(--info); outline-offset:1px; }
+  .actions { display:flex; justify-content:flex-end; gap:10px; margin-top:16px; }
+  .btn { font:600 14px var(--font-ui); min-height:42px; padding:0 16px; border-radius:10px; border:1px solid var(--border-strong);
+         background:rgba(255,255,255,.05); color:var(--txt); cursor:pointer; display:inline-flex; align-items:center; gap:8px; transition:background .15s, opacity .15s; }
+  .btn:hover { background:rgba(255,255,255,.1); }
+  .btn.primary { background:var(--info); border-color:transparent; color:#fff; }
+  .btn.primary:hover { background:#3b7bf0; }
+  .btn:disabled { opacity:.45; cursor:not-allowed; }
+  .btn:focus-visible { outline:2px solid #fff; outline-offset:2px; }
+  .calrun { margin-top:16px; padding:14px; border-radius:12px; background:rgba(77,141,255,.08); border:1px solid rgba(77,141,255,.3); }
+  .calphase { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; font-size:13px; color:var(--txt-2); }
+  .calphase b { font-size:26px; color:var(--txt); }
+  .calres { margin-top:16px; padding:14px; border-radius:12px; background:rgba(62,226,127,.07); border:1px solid rgba(62,226,127,.3); font-size:13px; }
+  .calres.bad { background:rgba(255,90,106,.08); border-color:rgba(255,90,106,.4); }
+  .calres .row { font-size:13px; padding:2px 0; }
+  .calres .warn { color:var(--warn); margin-top:6px; }
+  .switch { display:flex; align-items:center; gap:12px; min-height:40px; cursor:pointer; font-size:14px; }
+  .switch input { position:absolute; opacity:0; }
+  .switch span { width:40px; height:22px; border-radius:99px; background:rgba(255,255,255,.12); position:relative; transition:background .2s; flex:none; }
+  .switch span::after { content:""; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:#fff; transition:transform .2s; }
+  .switch input:checked + span { background:var(--info); }
+  .switch input:checked + span::after { transform:translateX(18px); }
+  .switch input:focus-visible + span { outline:2px solid var(--info); outline-offset:2px; }
+  @media (max-width:560px) { .fields { grid-template-columns:1fr 1fr; } .fields label:last-child { grid-column:1 / 3; } }
+
   @media (max-width:1100px) { #bsub { display:none; } .brand small { display:none; } }
   @media (max-width:900px) {
     #topbar { height:auto; flex-wrap:wrap; padding:10px; gap:10px; }
@@ -118,6 +182,7 @@
   <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></symbol>
   <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
   <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
   <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></symbol>
 </svg>
 
@@ -130,6 +195,7 @@
   <nav id="view" aria-label="Görünüm">
     <div class="seg" role="group" aria-label="Mod"><button data-m="activity" aria-pressed="true">Aktivite</button><button data-m="links" aria-pressed="false">Bağlantılar</button></div>
     <div class="seg" role="group" aria-label="Kamera"><button data-v="persp" aria-pressed="true">3D</button><button data-v="top" aria-pressed="false">Üstten</button></div>
+    <button id="openSettings" class="iconbtn" aria-label="Ayarlar ve kalibrasyon" title="Ayarlar ve kalibrasyon"><svg class="i"><use href="#i-gear"/></svg></button>
   </nav>
 </header>
 
@@ -153,7 +219,26 @@
     </section>
   </aside>
 
-  <aside class="panel" aria-label="Durum ve aktivite">
+  <aside id="railDevices" class="panel" aria-label="Görünen cihazlar" hidden>
+    <section>
+      <h2 class="eyebrow"><svg class="i"><use href="#i-wifi"/></svg>Bağlı router · canlı</h2>
+      <div class="devhero"><span class="dot big" style="background:var(--ok)"></span>
+        <div><b class="num" id="dvRssi">--</b><span id="dvMeta">--</span></div></div>
+    </section>
+    <section>
+      <h2 class="eyebrow"><svg class="i"><use href="#i-chart"/></svg>Wi-Fi ağları <span class="count" id="dvWifiN">0</span></h2>
+      <ul class="devlist" id="dvWifi"></ul>
+    </section>
+    <section>
+      <h2 class="eyebrow"><svg class="i"><use href="#i-pulse"/></svg>Bluetooth <span class="count" id="dvBleN">0</span></h2>
+      <ul class="devlist" id="dvBle"></ul>
+    </section>
+    <section>
+      <h2 class="eyebrow"><svg class="i"><use href="#i-cpu"/></svg>Ev ağı (ARP)</h2>
+      <div class="row"><span>Bağlı cihaz</span><b id="dvLan">kapalı</b></div>
+    </section>
+  </aside>
+  <aside id="railState" class="panel" aria-label="Durum ve aktivite">
     <section>
       <h2 class="eyebrow"><svg class="i"><use href="#i-pulse"/></svg>Durum · kural tabanlı</h2>
       <div id="state">--</div>
@@ -175,6 +260,41 @@
 </div>
 
 <div id="err" role="alert"></div>
+<div id="tip" role="tooltip" hidden></div>
+
+<dialog id="settings" aria-labelledby="setTitle">
+  <form method="dialog" class="dlg">
+    <header class="dlg-h"><h2 id="setTitle"><svg class="i"><use href="#i-gear"/></svg>Ayarlar</h2>
+      <button class="iconbtn" value="close" aria-label="Kapat"><svg class="i"><use href="#i-x"/></svg></button></header>
+
+    <section class="dlg-s">
+      <h3>Boş oda kalibrasyonu</h3>
+      <p class="help">Eşikler bu kayıttan türetilir. Başlamadan önce MacBook'u sabit bir yere koy; geri sayımda odadan çık ve kayıt bitene kadar
+      <b>Mac'e dokunma</b>. Kayıt <code>data/raw/</code> altına ham CSV olarak kaydedilir.</p>
+      <div class="fields">
+        <label>Süre<select id="calDur"><option value="30">30 s</option><option value="60" selected>60 s</option><option value="90">90 s</option><option value="120">120 s</option></select></label>
+        <label>Geri sayım<select id="calDelay"><option value="0">0 s</option><option value="10" selected>10 s</option><option value="20">20 s</option><option value="30">30 s</option></select></label>
+        <label>Oda<input id="calRoom" value="home" maxlength="40" autocomplete="off"></label>
+      </div>
+      <div class="calrun" id="calRun" hidden>
+        <div class="calphase"><span id="calPhase">--</span><b class="num" id="calBig">--</b></div>
+        <div class="meter"><i id="calBar"></i></div>
+      </div>
+      <div class="calres" id="calRes" hidden></div>
+      <div class="actions">
+        <button type="button" class="btn" id="calCancel" hidden>İptal</button>
+        <button type="button" class="btn primary" id="calStart"><svg class="i"><use href="#i-pulse"/></svg>Kalibrasyonu başlat</button>
+      </div>
+    </section>
+
+    <section class="dlg-s">
+      <h3>Bağlantılar görünümü</h3>
+      <label class="switch"><input type="checkbox" id="optLabels" checked><span></span>Etiketleri göster</label>
+      <label class="switch"><input type="checkbox" id="optBle" checked><span></span>Bluetooth cihazlarını göster</label>
+      <label class="switch"><input type="checkbox" id="optRotate"><span></span>Yavaşça döndür</label>
+    </section>
+  </form>
+</dialog>
 
 <footer id="footer">
   <details id="note" class="panel">
@@ -209,6 +329,7 @@
 <script type="module">
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+const $ = id => document.getElementById(id);
 
 // ---------- scene ----------
 const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("gl"), antialias: true });
@@ -288,112 +409,332 @@ const pts = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0x3ee27f, s
   transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
 scene.add(pts);
 
-// ---------- links view: measured networks around the Mac ----------
+// ---------- links view: measured networks & devices around the Mac ----------
+// Radius = signal strength (not distance). Height = band layer. Angle = stable slot per device (direction unknown).
 const links = new THREE.Group(); links.visible = false; scene.add(links);
-links.rotation.y = Math.PI / 2;  // connected router points "up" the screen, between the side rails
-const R = rssi => 1.2 + Math.min(1, Math.max(0, (-40 - rssi) / 55)) * 7.5;   // dBm -> radius (not distance)
-const BAND_COL = { "5GHz": 0x4d8dff, "2.4GHz": 0xffb547, "6GHz": 0xb77bff };
-function ring(dbm) {
-  const r = R(dbm), g = new THREE.BufferGeometry().setFromPoints(
-    Array.from({ length: 97 }, (_, i) => new THREE.Vector3(Math.cos(i / 96 * 6.283) * r, 0.02, Math.sin(i / 96 * 6.283) * r)));
-  links.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x1b2a44 })));
-  const lbl = label(`${dbm} dBm`, "#8196b6"); lbl.position.set(r + 0.1, 0.25, 0); lbl.scale.set(1.4, 0.35, 1); links.add(lbl);
-}
-function label(text, color) {
-  const c = document.createElement("canvas"); c.width = 256; c.height = 64;
-  const x = c.getContext("2d"); x.fillStyle = color; x.font = "500 24px Fira Code, Menlo"; x.textAlign = "center"; x.fillText(text, 128, 40);
-  return new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthWrite: false, transparent: true }));
-}
-[-50, -70, -90].forEach(ring);
-const macDot = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.12, 0.42), new THREE.MeshBasicMaterial({ color: 0xcfe3ff }));
-macDot.position.y = 0.3; links.add(macDot);
-const macLbl = label("MACBOOK", "#e6eefc"); macLbl.position.set(0, 0.8, 0); macLbl.scale.set(2, 0.5, 1); links.add(macLbl);
-// connected link (live)
-const apNode = new THREE.Mesh(new THREE.SphereGeometry(0.28, 20, 12), new THREE.MeshBasicMaterial({ color: 0x3ee27f }));
-links.add(apNode);
-const apLbl = label("ROUTER", "#3ee27f"); apLbl.scale.set(2.4, 0.6, 1); links.add(apLbl);
-const apBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1, 10, 1, true),
-  new THREE.MeshBasicMaterial({ color: 0x3ee27f, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending }));
-links.add(apBeam);
-const PK = 40, pkGeo = new THREE.BufferGeometry(), pkPos = new Float32Array(PK * 3);
-pkGeo.setAttribute("position", new THREE.BufferAttribute(pkPos, 3));
-links.add(new THREE.Points(pkGeo, new THREE.PointsMaterial({ color: 0x3ee27f, size: 0.12, transparent: true,
-  blending: THREE.AdditiveBlending, depthWrite: false })));
-let others = new THREE.Group(); links.add(others);
-const link = { rssi: -70, rssiS: -70, snr: 20, tx: 0, ch: null };
+const OPT = { labels: true, ble: true, rotate: false };
+try { Object.assign(OPT, JSON.parse(localStorage.getItem("linkOpts") || "{}")); } catch {}
+const R = rssi => 1.8 + Math.min(1, Math.max(0, (-35 - rssi) / 60)) * 6.8;
+const strength = rssi => Math.min(1, Math.max(0, (rssi + 95) / 55));          // 0 (−95) … 1 (−40)
+const LAYER = { ble: 0.35, "2.4GHz": 1.0, "5GHz": 1.7, "6GHz": 2.4 };
+const KIND_COL = { ble: 0xff6fd8, "2.4GHz": 0xffb547, "5GHz": 0x4d8dff, "6GHz": 0xb77bff, router: 0x3ee27f };
+const CORE_Y = 1.2;
 
+// soft radial glow texture shared by all halos
+const glowTex = (() => { const c = document.createElement("canvas"); c.width = c.height = 128; const g = c.getContext("2d");
+  const r = g.createRadialGradient(64, 64, 0, 64, 64, 64); r.addColorStop(0, "rgba(255,255,255,1)"); r.addColorStop(.25, "rgba(255,255,255,.45)");
+  r.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = r; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })();
+function halo(color, size) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  s.scale.setScalar(size); return s;
+}
+// crisp screen-space label pill (constant pixel size)
+function pill(text, color = "#e6eefc", dot = null) {
+  const c = document.createElement("canvas"), g = c.getContext("2d"), f = "600 34px Fira Sans, system-ui";
+  g.font = f; const w = Math.ceil(g.measureText(text).width) + (dot ? 64 : 36); c.width = w; c.height = 60;
+  g.font = f; g.fillStyle = "rgba(11,19,34,.88)"; g.strokeStyle = "rgba(148,178,230,.35)"; g.lineWidth = 2;
+  g.beginPath(); g.roundRect(1, 1, w - 2, 58, 29); g.fill(); g.stroke();
+  if (dot) { g.fillStyle = dot; g.beginPath(); g.arc(30, 30, 9, 0, 7); g.fill(); }
+  g.fillStyle = color; g.textBaseline = "middle"; g.fillText(text, dot ? 48 : 18, 32);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, sizeAttenuation: false }));
+  sp.scale.set(0.028 * w / 60, 0.028, 1); sp.renderOrder = 10; return sp;
+}
+
+// floor: glowing dBm rings + faint disc
+const floor = new THREE.Group(); links.add(floor);
+floor.add(new THREE.Mesh(new THREE.CircleGeometry(9.2, 96).rotateX(-Math.PI / 2),
+  new THREE.MeshBasicMaterial({ color: 0x0b1a33, transparent: true, opacity: 0.55, depthWrite: false })));
+[-50, -65, -80, -95].forEach(dbm => {
+  const r = R(dbm), ring = new THREE.Mesh(new THREE.RingGeometry(r - 0.015, r + 0.015, 128).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: 0x4d8dff, transparent: true, opacity: dbm === -95 ? 0.18 : 0.3, depthWrite: false }));
+  ring.position.y = 0.01; floor.add(ring);
+  const lb = pill(`${dbm} dBm`, "#8196b6"); lb.position.set(0, 0.05, r); lb.scale.multiplyScalar(0.75); floor.add(lb);
+});
+// layer guides (thin vertical axis at centre with band ticks)
+const axis = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 2.8, 0)]),
+  new THREE.LineBasicMaterial({ color: 0x4d8dff, transparent: true, opacity: 0.25 })); floor.add(axis);
+
+// centre: MacBook core
+const core = new THREE.Group(); core.position.y = CORE_Y; links.add(core);
+const coreShell = new THREE.Mesh(new THREE.IcosahedronGeometry(0.42, 1), new THREE.MeshBasicMaterial({ color: 0xe6eefc, wireframe: true, transparent: true, opacity: 0.55 }));
+const coreBody = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 2), new THREE.MeshBasicMaterial({ color: 0xe6eefc }));
+core.add(coreShell, coreBody, halo(0x9fc3ff, 2.2));
+const coreLbl = pill("MacBook"); coreLbl.position.y = 0.75; core.add(coreLbl);
+
+// scan ripple (fires only on a real scan event)
+const ripples = [];
+function ripple(color = 0x4d8dff) {
+  const m = new THREE.Mesh(new THREE.RingGeometry(0.96, 1, 96).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
+  m.position.y = 0.02; m.userData.t = 0; links.add(m); ripples.push(m);
+}
+
+// flowing particles along every link (one pooled Points object)
+const FLOW = 6, MAXN = 64, flowPos = new Float32Array(MAXN * FLOW * 3), flowCol = new Float32Array(MAXN * FLOW * 3);
+const flowGeo = new THREE.BufferGeometry();
+flowGeo.setAttribute("position", new THREE.BufferAttribute(flowPos, 3));
+flowGeo.setAttribute("color", new THREE.BufferAttribute(flowCol, 3));
+const flow = new THREE.Points(flowGeo, new THREE.PointsMaterial({ size: 0.09, vertexColors: true, transparent: true, opacity: 0.95,
+  blending: THREE.AdditiveBlending, depthWrite: false }));
+links.add(flow);
+
+// ---- nodes with identity + smooth transitions ----
+const nodes = new Map();             // key -> node
+const hitMeshes = [];
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+function makeNode(key, kind, info) {
+  const col = KIND_COL[kind], isR = kind === "router";
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(isR ? new THREE.OctahedronGeometry(0.3, 0) : kind === "ble" ? new THREE.OctahedronGeometry(0.13, 0) : new THREE.SphereGeometry(0.14, 20, 12),
+    new THREE.MeshBasicMaterial({ color: col, transparent: true }));
+  const glow = halo(col, isR ? 1.8 : 1.0);
+  const hit = new THREE.Mesh(new THREE.SphereGeometry(isR ? 0.5 : 0.35, 8, 6), new THREE.MeshBasicMaterial({ visible: false }));
+  hit.userData.key = key; hitMeshes.push(hit);
+  const stem = new THREE.Line(new THREE.BufferGeometry().setFromPoints([V(0, 0, 0), V(0, -1, 0)]),
+    new THREE.LineDashedMaterial({ color: col, dashSize: 0.06, gapSize: 0.06, transparent: true, opacity: 0.35 }));
+  const foot = new THREE.Mesh(new THREE.RingGeometry(0.1, 0.14, 24).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.5, depthWrite: false }));
+  g.add(body, glow, hit, stem, foot);
+  const arcGeo = new THREE.BufferGeometry().setFromPoints(Array.from({ length: 33 }, () => V(0, 0, 0)));
+  const arc = new THREE.Line(arcGeo, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false }));
+  links.add(g, arc);
+  const n = { key, kind, info, g, body, glow, stem, foot, arc, label: null, labelText: "", col: new THREE.Color(col),
+              pos: V(0, CORE_Y, 0), target: V(0, CORE_Y, 0), alpha: 0, alive: true, slot: 0, phase: Math.random() * 6.28 };
+  nodes.set(key, n); return n;
+}
+function removeNode(n) {
+  links.remove(n.g, n.arc); if (n.label) links.remove(n.label);
+  const i = hitMeshes.indexOf(n.g.children[2]); if (i >= 0) hitMeshes.splice(i, 1);
+  nodes.delete(n.key);
+}
+function place(n, rssi, angle) {
+  const r = R(rssi), y = n.kind === "router" ? 1.7 : LAYER[n.kind] ?? 1.2;
+  n.target.set(Math.cos(angle) * r, y, Math.sin(angle) * r);
+}
+function setLabel(n, text) {
+  if (text === n.labelText) return;
+  if (n.label) links.remove(n.label);
+  n.labelText = text; n.label = text ? pill(text, "#e6eefc", "#" + n.col.getHexString()) : null;
+  if (n.label) links.add(n.label);
+}
+// angle slots: router fixed at top (−z); others spread by kind sector so the rails never cover them
+const SECTOR = { "5GHz": [-2.45, -0.7], "6GHz": [-2.45, -0.7], "2.4GHz": [0.3, 1.45], ble: [1.7, 2.85] };
+function slotAngles(list, kind) {
+  const [a0, a1] = SECTOR[kind]; list.forEach((n, i) => n.slot = a0 + (i + 1) / (list.length + 1) * (a1 - a0));
+}
+
+// connected router node (always present, live)
+const router = makeNode("router", "router", {});
+router.alpha = 1;
+const link = { rssi: -70, snr: 20, tx: 0, ch: null, band: null };
+
+// match a new anonymous scan to existing nodes: same channel, nearest RSSI (greedy), so nodes glide instead of jumping
+let wifiList = [];
 function updateNetworks(nets) {
-  links.remove(others); others = new THREE.Group(); links.add(others);
-  // drop the scan entry that is most likely our own connected link (same channel, closest RSSI)
+  ripple();
   let own = -1, best = 99;
-  nets.forEach((n, i) => { const dd = Math.abs(n.rssi_dbm - link.rssi);
-    if (n.channel === link.ch && dd < best && dd <= 6) { best = dd; own = i; } });
-  const rest = nets.filter((_, i) => i !== own).sort((a, b) => (a.channel ?? 0) - (b.channel ?? 0));
-  rest.forEach((n, i) => {
-    const ang = 0.5 + (i + 1) / (rest.length + 1) * (6.283 - 1.0), r = R(n.rssi_dbm);
-    const x = Math.cos(ang) * r, z = Math.sin(ang) * r, col = BAND_COL[n.band] ?? 0x6f86a8;
-    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.1 + 0.15 * (1 - (r - 1.2) / 7.5), 14, 8),
-      new THREE.MeshBasicMaterial({ color: col })); dot.position.set(x, 0.3, z); others.add(dot);
-    const ln = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0.3, 0), new THREE.Vector3(x, 0.3, z)]),
-      new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.15 + 0.5 * (1 - (r - 1.2) / 7.5) }));
-    others.add(ln);
-    const lb = label(`${n.rssi_dbm} dBm · ch${n.channel}`, "#" + new THREE.Color(col).getHexString());
-    lb.position.set(x, 0.7, z); lb.scale.set(1.5, 0.38, 1); others.add(lb);
+  nets.forEach((n, i) => { const d = Math.abs(n.rssi_dbm - link.rssi); if (n.channel === link.ch && d < best && d <= 6) { best = d; own = i; } });
+  const rest = nets.filter((_, i) => i !== own);
+  const old = [...nodes.values()].filter(n => n.kind !== "ble" && n.kind !== "router");
+  const used = new Set();
+  const matched = rest.map(net => {
+    let m = null, md = 99;
+    for (const n of old) if (!used.has(n) && n.info.channel === net.channel && Math.abs(n.info.rssi_dbm - net.rssi_dbm) < md) { m = n; md = Math.abs(n.info.rssi_dbm - net.rssi_dbm); }
+    if (m) used.add(m); else m = makeNode(`w${Math.random().toString(36).slice(2, 8)}`, net.band in LAYER ? net.band : "5GHz", net);
+    m.info = net; m.alive = true; return m;
   });
-  $("netcount").textContent = `· görünen ağ: ${nets.length}${own >= 0 ? " (1'i bağlı olunan)" : ""}`;
-}
-let bleGroup = new THREE.Group(); links.add(bleGroup);
-function updateDevices(d) {
-  links.remove(bleGroup); bleGroup = new THREE.Group(); links.add(bleGroup);
-  const b = d.ble;
-  if (!b) $("blestat").textContent = "okuyucu başlamadı";
-  else if (b.state !== "on") $("blestat").textContent = b.state === "off" ? "Bluetooth kapalı" : b.state;
-  else {
-    const devs = b.devices.sort((x, y) => y.rssi_dbm - x.rssi_dbm);
-    $("blestat").textContent = `${devs.length} cihaz (en güçlü 12 çizildi)`;
-    devs.slice(0, 12).forEach((v, i) => {
-      const ang = -1.45 + (i + 1) / 13 * 1.25, r = R(v.rssi_dbm);
-      const x = Math.cos(ang) * r, z = Math.sin(ang) * r;
-      const dot = new THREE.Mesh(new THREE.OctahedronGeometry(0.16), new THREE.MeshBasicMaterial({ color: 0xff6fd8 }));
-      dot.position.set(x, 0.5, z); bleGroup.add(dot);
-      const lb = label(`${v.name ?? "BLE"} ${v.rssi_dbm}`, "#ff6fd8"); lb.position.set(x, 0.9, z); lb.scale.set(1.5, 0.38, 1);
-      bleGroup.add(lb);
-    });
+  old.filter(n => !used.has(n)).forEach(n => n.alive = false);
+  for (const kind of ["5GHz", "2.4GHz", "6GHz"]) {
+    const list = matched.filter(n => n.kind === kind).sort((a, b) => (a.info.channel - b.info.channel) || (b.info.rssi_dbm - a.info.rssi_dbm));
+    slotAngles(list, kind); list.forEach(n => place(n, n.info.rssi_dbm, n.slot));
   }
-  if (d.lan) { const rnd = d.lan.filter(x => x.random_mac).length;
-    $("lanstat").textContent = `${d.lan.length} cihaz (${rnd} rastgele MAC) — sinyal gücü yok, sadece liste`; }
-  if (d.wall) { const w = d.wall;
-    $("wall").textContent = `${w.excess_db.toFixed(0)} dB (${w.excess_range_db[0].toFixed(0)}…${w.excess_range_db[1].toFixed(0)})`; }
+  wifiList = matched.sort((a, b) => b.info.rssi_dbm - a.info.rssi_dbm);
+  const top = new Set(wifiList.slice(0, 4));
+  wifiList.forEach(n => setLabel(n, OPT.labels && top.has(n) ? `${n.info.rssi_dbm} dBm · ch${n.info.channel}` : ""));
+  $("netcount").textContent = `· görünen ağ: ${nets.length}${own >= 0 ? " (1'i bağlı olunan)" : ""}`;
+  renderDeviceList();
 }
+let bleList = [];
+function updateDevices(d) {
+  const b = d.ble;
+  $("blestat").textContent = !b ? "okuyucu başlamadı" : b.state !== "on" ? (b.state === "off" ? "Bluetooth kapalı" : b.state) : `${b.devices.length} cihaz`;
+  if (d.lan) { const rnd = d.lan.filter(x => x.random_mac).length;
+    $("lanstat").textContent = $("dvLan").textContent = `${d.lan.length} cihaz (${rnd} rastgele MAC)`; }
+  if (d.wall) { const w = d.wall; $("wall").textContent = `${w.excess_db.toFixed(0)} dB (${w.excess_range_db[0].toFixed(0)}…${w.excess_range_db[1].toFixed(0)})`; }
+  const devs = b && b.state === "on" && OPT.ble ? b.devices.slice().sort((x, y) => y.rssi_dbm - x.rssi_dbm).slice(0, 14) : [];
+  const keep = new Set();
+  const list = devs.map(v => { const key = "b" + v.id; keep.add(key);
+    const n = nodes.get(key) ?? makeNode(key, "ble", v); n.info = v; n.alive = true; return n; });
+  [...nodes.values()].filter(n => n.kind === "ble" && !keep.has(n.key)).forEach(n => n.alive = false);
+  const stable = list.slice().sort((a, b) => a.key.localeCompare(b.key));   // slot by id, not rank: no reshuffling
+  slotAngles(stable, "ble"); list.forEach(n => place(n, n.info.rssi_dbm, n.slot));
+  bleList = list;
+  list.forEach((n, i) => setLabel(n, OPT.labels && i < 3 ? `${n.info.name ?? "BLE cihaz"} · ${n.info.rssi_dbm}` : ""));
+  renderDeviceList(b);
+}
+
+// right-rail list (exact values; the 3D view is the overview)
+const bandName = k => ({ "5GHz": "5 GHz", "2.4GHz": "2.4 GHz", "6GHz": "6 GHz" }[k] ?? k);
+const hex = n => "#" + n.col.getHexString();
+function li(n, title, value) {
+  const pct = (strength(n.info.rssi_dbm) * 100).toFixed(0);
+  return `<li data-key="${n.key}"><span class="dot" style="background:${hex(n)}"></span><span>${title}</span><b>${value}</b>
+    <span class="sbar"><i style="width:${pct}%;background:${hex(n)}"></i></span></li>`;
+}
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function renderDeviceList(b) {
+  $("dvWifiN").textContent = wifiList.length;
+  $("dvWifi").innerHTML = wifiList.map(n => li(n, `${bandName(n.kind)} · ch ${n.info.channel}`, `${n.info.rssi_dbm} dBm`)).join("")
+    || `<li><span class="empty">Tarama bekleniyor…</span></li>`;
+  $("dvBleN").textContent = bleList.length;
+  $("dvBle").innerHTML = bleList.map(n => li(n, esc(n.info.name ?? "Adsız cihaz"), `${n.info.rssi_dbm} dBm`)).join("")
+    || `<li><span class="empty">${!OPT.ble ? "Ayarlardan kapalı" : b && b.state === "off" ? "Bluetooth kapalı" : "Cihaz yok"}</span></li>`;
+}
+document.querySelectorAll(".devlist").forEach(ul => {
+  ul.addEventListener("pointerover", e => { const k = e.target.closest("li")?.dataset.key; hover.key = k ?? null; });
+  ul.addEventListener("pointerleave", () => hover.key = null);
+});
+
+// hover tooltip via raycast
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2(), hover = { key: null, x: 0, y: 0 };
+renderer.domElement.addEventListener("pointermove", e => {
+  if (!links.visible) return;
+  mouse.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(mouse, camera);
+  const hit = ray.intersectObjects(hitMeshes, false)[0];
+  hover.key = hit ? hit.object.userData.key : null; hover.x = e.clientX; hover.y = e.clientY;
+  const tip = $("tip"), n = hover.key && nodes.get(hover.key);
+  if (!n) { tip.hidden = true; renderer.domElement.style.cursor = ""; return; }
+  renderer.domElement.style.cursor = "pointer";
+  tip.innerHTML = n.kind === "router"
+    ? `<b>Bağlı router</b><span>${link.rssi} dBm · SNR ${link.snr} dB</span><span>ch ${link.ch} · ${Math.round(link.tx)} Mbps</span>`
+    : n.kind === "ble" ? `<b>${esc(n.info.name ?? "Bluetooth cihaz")}</b><span>BLE · ${n.info.rssi_dbm} dBm</span><span>id ${n.info.id}</span>`
+    : `<b>Wi-Fi ağı · ${bandName(n.kind)}</b><span>${n.info.rssi_dbm} dBm · ch ${n.info.channel}</span><span>ad gizli (konum izni yok)</span>`;
+  tip.hidden = false; tip.style.left = Math.min(e.clientX + 14, innerWidth - 200) + "px"; tip.style.top = (e.clientY + 14) + "px";
+});
+
+const arcPt = (a, c, b, t, out) => out.set(
+  (1 - t) ** 2 * a.x + 2 * (1 - t) * t * c.x + t * t * b.x,
+  (1 - t) ** 2 * a.y + 2 * (1 - t) * t * c.y + t * t * b.y,
+  (1 - t) ** 2 * a.z + 2 * (1 - t) * t * c.z + t * t * b.z);
+const CORE = V(0, CORE_Y, 0), ctrl = V(), tmp = V();
 function animateLinks(t, dt) {
-  link.rssiS += (link.rssi - link.rssiS) * Math.min(1, dt * 4);
-  const r = R(link.rssiS), q = Math.min(1, Math.max(0, link.snr / 40));
-  apNode.position.set(r, 0.3, 0); apLbl.position.set(r, 0.95, 0);
-  apBeam.scale.set(0.6 + 2.5 * q, r, 0.6 + 2.5 * q); apBeam.position.set(r / 2, 0.3, 0); apBeam.rotation.z = Math.PI / 2;
-  apBeam.material.opacity = 0.35 + 0.55 * q;
-  const speed = 0.2 + Math.min(1.5, link.tx / 600);
-  for (let i = 0; i < PK; i++) { const s = (i / PK + t * speed) % 1;
-    pkPos[i*3] = r * (1 - s); pkPos[i*3+1] = 0.3 + 0.05 * Math.sin(i + t * 5); pkPos[i*3+2] = 0.05 * Math.cos(i * 3 + t * 4); }
-  pkGeo.attributes.position.needsUpdate = true;
+  // live router: radius follows the 5 Hz RSSI; SNR drives glow; tx rate drives flow speed
+  place(router, link.rssi, -Math.PI / 2);
+  setLabel(router, OPT.labels ? `Router · ${link.rssi} dBm` : "");
+  coreShell.rotation.y += dt * 0.4; coreShell.rotation.x += dt * 0.15;
+  coreBody.scale.setScalar(1 + 0.06 * Math.sin(t * 2.4));
+  let fi = 0;
+  for (const n of [...nodes.values()]) {
+    n.alpha += ((n.alive ? 1 : 0) - n.alpha) * Math.min(1, dt * 3);
+    if (!n.alive && n.alpha < 0.02) { removeNode(n); continue; }
+    n.pos.lerp(n.target, Math.min(1, dt * 2.5));
+    n.g.position.copy(n.pos);
+    const st = n.kind === "router" ? Math.min(1, link.snr / 35) : strength(n.info.rssi_dbm);
+    const hl = hover.key === n.key;
+    const s = n.alpha * (hl ? 1.5 : 1) * (1 + 0.08 * Math.sin(t * 3 + n.phase));
+    n.body.scale.setScalar(Math.max(0.001, s)); n.body.material.opacity = n.alpha;
+    n.glow.material.opacity = n.alpha * (0.35 + 0.6 * st) * (hl ? 1.4 : 1);
+    n.glow.scale.setScalar((n.kind === "router" ? 1.4 + 1.2 * st : 0.6 + 0.8 * st) * (1 + 0.1 * Math.sin(t * 2 + n.phase)));
+    n.stem.geometry.attributes.position.setY(1, -n.pos.y); n.stem.geometry.attributes.position.needsUpdate = true; n.stem.computeLineDistances();
+    n.foot.position.y = -n.pos.y + 0.02; n.foot.material.opacity = 0.45 * n.alpha;
+    // arc: quadratic curve lifted above the midpoint
+    ctrl.copy(CORE).add(n.pos).multiplyScalar(0.5); ctrl.y += 0.8 + 0.15 * n.pos.distanceTo(CORE);
+    const ap = n.arc.geometry.attributes.position;
+    for (let i = 0; i <= 32; i++) { arcPt(CORE, ctrl, n.pos, i / 32, tmp); ap.setXYZ(i, tmp.x, tmp.y, tmp.z); }
+    ap.needsUpdate = true;
+    n.arc.material.opacity = n.alpha * (n.kind === "router" ? 0.85 : (0.12 + 0.45 * st)) * (hl ? 2 : 1);
+    if (n.label) { n.label.position.copy(n.pos).add(tmp.set(0, n.kind === "router" ? 0.7 : 0.45, 0)); n.label.material.opacity = n.alpha; }
+    // particles: towards the Mac (received signal); router uses tx rate for speed
+    const speed = n.kind === "router" ? 0.35 + Math.min(1.2, link.tx / 500) : 0.18 + 0.3 * st;
+    const cnt = n.kind === "router" ? FLOW : Math.max(1, Math.round(FLOW * st * 0.7));
+    for (let k = 0; k < cnt && fi < MAXN * FLOW; k++, fi++) {
+      const u = 1 - ((k / cnt + t * speed + n.phase) % 1);
+      arcPt(CORE, ctrl, n.pos, u, tmp); flowPos.set([tmp.x, tmp.y, tmp.z], fi * 3);
+      const fade = n.alpha * Math.sin(u * Math.PI);
+      flowCol.set([n.col.r * fade, n.col.g * fade, n.col.b * fade], fi * 3);
+    }
+  }
+  for (; fi < MAXN * FLOW; fi++) flowCol.set([0, 0, 0], fi * 3);
+  flowGeo.attributes.position.needsUpdate = true; flowGeo.attributes.color.needsUpdate = true;
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    const m = ripples[i]; m.userData.t += dt / 1.8; const u = m.userData.t;
+    m.scale.setScalar(0.5 + u * 9); m.material.opacity = 0.55 * (1 - u);
+    if (u >= 1) { links.remove(m); m.geometry.dispose(); m.material.dispose(); ripples.splice(i, 1); }
+  }
+  document.querySelectorAll(".devlist li").forEach(el => el.classList.toggle("hl", el.dataset.key === hover.key));
+  controls.autoRotate = OPT.rotate && !hover.key; controls.autoRotateSpeed = 0.4;
 }
 const activityObjs = () => [ell, pts, beam, glow, ...scene.children.filter(o => o.isGroup && o !== links)];
 function setMode(m) {
   const L = m === "links"; links.visible = L; tiles.visible = !L;
   press("#view button[data-m]", m, "m");
-  if (L) { const k = Math.min(1.8, Math.max(1, 1250 / innerWidth));  // zoom out on narrow screens so side rails don't hide nodes
-           camera.position.set(0, 13 * k, 11 * k); controls.target.set(0, 0, 0); }
-  else { controls.target.set(0, 0.8, 0); setView("persp"); }
+  if (L) { const k = Math.min(1.8, Math.max(1, 1250 / innerWidth));
+           camera.position.set(0, 8.5 * k, 12.5 * k); controls.target.set(0, 1, 0); }
+  else { controls.autoRotate = false; controls.target.set(0, 0.8, 0); setView("persp"); }
   controls.update();
   activityObjs().forEach(o => o.visible = !L);
   $("linknote").style.display = L ? "" : "none"; $("note").style.display = L ? "none" : "";
   $("banner").style.display = L ? "none" : "";
+  $("railDevices").hidden = !L; $("railState").hidden = L;
+  if (!L) $("tip").hidden = true;
   try { localStorage.setItem("mode", m); } catch {}
 }
 document.querySelectorAll("#view button[data-m]").forEach(b => b.onclick = () => setMode(b.dataset.m));
 
+
+// ---------- settings: options + calibration ----------
+const dlg = $("settings");
+const openSettings = () => { if (!dlg.open) dlg.showModal(); };
+$("openSettings").onclick = openSettings;
+$("banner").addEventListener("click", () => { if ($("banner").classList.contains("clickable")) openSettings(); });
+for (const [id, key] of [["optLabels", "labels"], ["optBle", "ble"], ["optRotate", "rotate"]]) {
+  $(id).checked = OPT[key];
+  $(id).onchange = () => { OPT[key] = $(id).checked; try { localStorage.setItem("linkOpts", JSON.stringify(OPT)); } catch {}
+    if (key === "labels") { wifiList.forEach(n => setLabel(n, "")); bleList.forEach(n => setLabel(n, "")); } };
+}
+const calUI = (running) => {
+  $("calStart").disabled = running; $("calCancel").hidden = !running; $("calRun").hidden = !running;
+  ["calDur", "calDelay", "calRoom"].forEach(id => $(id).disabled = running);
+};
+$("calStart").onclick = async () => {
+  $("calRes").hidden = true;
+  const body = { duration: +$("calDur").value, delay: +$("calDelay").value, room: $("calRoom").value.trim() || "home" };
+  try {
+    const r = await fetch("/api/calibrate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const j = await r.json();
+    if (!r.ok || !j.started) throw new Error(j.error || "Zaten bir kalibrasyon çalışıyor");
+    calUI(true); $("calPhase").textContent = "Başlıyor…"; $("calBig").textContent = ""; $("calBar").style.width = "0";
+  } catch (e) { showCalResult(false, `<b>Başlatılamadı:</b> ${esc(e.message)}`); }
+};
+$("calCancel").onclick = () => fetch("/api/calibrate/cancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+function showCalResult(ok, html) { const el = $("calRes"); el.hidden = false; el.classList.toggle("bad", !ok); el.innerHTML = html; }
+function handleCalib(d) {
+  if (d.phase === "countdown") {
+    calUI(true); $("calPhase").textContent = "Odadan çık — kayıt başlıyor"; $("calBig").textContent = d.seconds + " s";
+    $("calBar").style.width = "0"; $("calBar").style.background = "var(--warn)";
+  } else if (d.phase === "recording") {
+    calUI(true); const pct = d.count ? d.n / d.count * 100 : 0;
+    $("calPhase").textContent = `Kaydediliyor · Mac'e dokunma${d.rssi != null ? ` · ${d.rssi} dBm` : ""}`;
+    $("calBig").textContent = `${Math.max(0, Math.ceil((d.count - d.n) / 5))} s`;
+    $("calBar").style.width = pct.toFixed(0) + "%"; $("calBar").style.background = "var(--info)";
+  } else if (d.phase === "done") {
+    calUI(false); const r = d.result;
+    showCalResult(true, `<b>Kalibrasyon tamamlandı</b> · ${esc(r.source_file)}
+      <div class="row"><span>Baseline</span><b>${r.baseline_mean_dbm.toFixed(2)} dBm</b></div>
+      <div class="row"><span>Std</span><b>${r.baseline_std_db.toFixed(2)} dB</b></div>
+      <div class="row"><span>Aktivite eşiği (3 s std)</span><b>${r.suggested_activity_std_db.toFixed(2)} dB</b></div>
+      <div class="row"><span>Kayma eşiği</span><b>${r.suggested_mean_shift_db.toFixed(2)} dB</b></div>
+      <div>${esc(r.rules)}</div>${(r.warnings || []).map(w => `<div class="warn">⚠ ${esc(w)}</div>`).join("")}`);
+  } else if (d.phase === "cancelled") {
+    calUI(false); showCalResult(false, "<b>İptal edildi.</b> Kalibrasyon dosyası değiştirilmedi.");
+  } else if (d.phase === "error") {
+    calUI(false); showCalResult(false, `<b>Hata:</b> ${esc(d.message)}`);
+  }
+}
+
 // ---------- live data ----------
 const st = { stateCol: new THREE.Color(0x3ee27f), atten: 0, attenS: 0, sceneCol: new THREE.Color(0x3ee27f), states: [], intensity: 0, target: 0, jolt: 0, lastRssi: null, times: [], rssi: [] };
-const $ = id => document.getElementById(id);
 const COLORS = { LOW: "#3ee27f", MEDIUM: "#ffb547", HIGH: "#ff5a6a", WARMUP: "#8196b6" };
 const LEVEL_TR = { LOW: "DÜŞÜK", MEDIUM: "ORTA", HIGH: "YÜKSEK", WARMUP: "ISINIYOR" };
 const STATE_TR = { ABSENT: "BOŞ", PRESENT_STILL: "VAR · HAREKETSİZ", ACTIVE: "AKTİF HAREKET" };
@@ -406,7 +747,10 @@ es.onmessage = ev => {
   const d = JSON.parse(ev.data);
   if (d.type === "scan") { updateNetworks(d.networks); return; }
   if (d.type === "devices") { updateDevices(d); return; }
-  if (d.associated) { link.rssi = d.rssi_dbm; link.snr = d.rssi_dbm - d.noise_dbm; link.tx = d.tx_rate_mbps; link.ch = d.channel; }
+  if (d.type === "calib") { handleCalib(d); return; }
+  if (d.associated) { link.rssi = d.rssi_dbm; link.snr = d.rssi_dbm - d.noise_dbm; link.tx = d.tx_rate_mbps; link.ch = d.channel;
+    $("dvRssi").textContent = `${d.rssi_dbm} dBm`;
+    $("dvMeta").textContent = `SNR ${link.snr} dB · ch ${d.channel} (${d.band}) · ${d.phy_mode} · ${Math.round(d.tx_rate_mbps)} Mbps`; }
   if (d.error) { $("err").textContent = "ERROR: " + d.error; return; }
   $("err").textContent = d.associated ? "" : "Wi-Fi bağlı değil (rssiValue()==0)";
   $("src").textContent = d.source || "LIVE";
@@ -445,11 +789,11 @@ es.onmessage = ev => {
     $("bicon").innerHTML = icon("i-gear"); $("bicon").style.color = "#ffb547";
     $("banner").style.borderColor = "#ffb54777"; $("banner").style.boxShadow = "none";
     $("conf").textContent = "--"; $("confbar").style.width = "0";
-    $("bsub").textContent = "python -m app.calibrate  ·  Mac sabit, oda boş";
+    $("bsub").textContent = "Başlatmak için tıkla · Mac sabit, oda boş"; $("banner").classList.add("clickable");
     $("state").textContent = "Kalibrasyon yok"; $("state").style.color = "#8196b6";
   }
   if (d.state) {
-    $("bsub").textContent = "durum ikonu · algılanmış bir figür değildir";
+    $("bsub").textContent = "durum ikonu · algılanmış bir figür değildir"; $("banner").classList.remove("clickable");
     const S = d.state, name = S.state === "PRESENT_STILL" ? "PRESENT (STILL)" : S.state;
     $("state").textContent = STATE_TR[S.state] ?? name;
     $("state").style.color = STATE_COLORS[S.state];

@@ -39,6 +39,30 @@ def derive(rssi: np.ndarray, hz: float, window_s: float = 3.0) -> dict:
     }
 
 
+def refit_rules(cal_path: Path) -> str:
+    """Presence from the new calibration, motion threshold from labelled STILL/ACTIVE recordings."""
+    from app.classifier import LABEL_TO_STATE, RULES, fit
+    meta = lambda p: json.loads(p.with_suffix(".meta.json").read_text())
+    labelled = [p for p in sorted(cal_path.parent.glob("*.csv")) if p != cal_path
+                and p.with_suffix(".meta.json").exists()
+                and LABEL_TO_STATE.get(meta(p).get("label")) in ("PRESENT_STILL", "ACTIVE")]
+    if {LABEL_TO_STATE[meta(p)["label"]] for p in labelled} != {"PRESENT_STILL", "ACTIVE"}:
+        return "No STILL + ACTIVE recordings yet; rules not fitted (activity only)."
+    RULES.write_text(json.dumps(fit([cal_path, *labelled]), indent=2))
+    return f"Rules re-fitted from {len(labelled)} labelled recordings."
+
+
+def run_calibration(duration: float, hz: float, room: str, on_sample=None, cancel=None) -> dict:
+    path = record(hz, duration, {"room": room, "label": "EMPTY", "note": "calibration"}, on_sample, cancel)
+    if cancel and cancel():
+        return {"cancelled": True, "file": path.name}
+    d = load(path)
+    q = analyze(d, hz)
+    cal = {"source_file": path.name, "room": room, "actual_hz": q.actual_hz, **derive(d["rssi"], q.actual_hz)}
+    CAL.write_text(json.dumps(cal, indent=2))
+    return {**cal, "warnings": warnings(q), "rules": refit_rules(path)}
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--duration", type=float, default=60)
@@ -52,33 +76,16 @@ def main(argv=None) -> int:
         print(f"\r  leave the room... starting in {s:2d}s", end="", flush=True)
         time.sleep(1)
     print()
-    path = record(a.hz, a.duration, {"room": a.room, "label": "EMPTY", "note": "calibration"})
-    d = load(path)
-    q = analyze(d, a.hz)
-    cal = {"source_file": path.name, "room": a.room, "actual_hz": q.actual_hz, **derive(d["rssi"], q.actual_hz)}
-    CAL.write_text(json.dumps(cal, indent=2))
+    cal = run_calibration(a.duration, a.hz, a.room)
     print("\a" + "=" * 36)
     print(f"Baseline RSSI:        {cal['baseline_mean_dbm']:.2f} dBm")
     print(f"Std:                  {cal['baseline_std_db']:.3f} dB")
     print(f"Rolling std p95 (3s): {cal['rolling_std_p95_db']:.3f} dB")
     print(f"Suggested activity threshold (rolling std): {cal['suggested_activity_std_db']:.3f} dB")
     print(f"Suggested mean-shift threshold:             {cal['suggested_mean_shift_db']:.2f} dB")
-    for w in warnings(q):
+    for w in cal["warnings"]:
         print("WARN", w)
-    print(f"Saved {CAL}")
-    # re-fit rules: presence from this calibration, motion threshold from labelled STILL/ACTIVE recordings
-    from app.classifier import LABEL_TO_STATE, RULES, fit
-    raw = path.parent
-    labelled = [p for p in sorted(raw.glob("*.csv")) if p != path and p.with_suffix(".meta.json").exists()
-                and LABEL_TO_STATE.get(json.loads(p.with_suffix(".meta.json").read_text()).get("label"))
-                in ("PRESENT_STILL", "ACTIVE")]
-    states = {LABEL_TO_STATE[json.loads(p.with_suffix(".meta.json").read_text())["label"]] for p in labelled}
-    if states == {"PRESENT_STILL", "ACTIVE"}:
-        RULES.write_text(json.dumps(fit([path, *labelled]), indent=2))
-        print(f"Rules re-fitted ({len(labelled)} labelled recordings) -> {RULES.name}. Live view picks it up.")
-    else:
-        print("No STILL + ACTIVE recordings yet; rules not fitted (live view shows activity only).")
-    print("=" * 36)
+    print(f"Saved {CAL}\n{cal['rules']}\n" + "=" * 36)
     return 0
 
 

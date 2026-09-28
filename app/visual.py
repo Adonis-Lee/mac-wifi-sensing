@@ -122,7 +122,53 @@ def collector(hub: Hub, hz: float, replay: Path | None = None) -> None:
         hub.publish({"error": str(e)})
 
 
-def handler_for(hub: Hub):
+class CalibrationJob:
+    """One calibration at a time, driven from the web UI. Publishes {"type": "calib", ...} events."""
+
+    def __init__(self, hub: Hub, hz: float):
+        self.hub, self.hz = hub, hz
+        self.thread: threading.Thread | None = None
+        self.cancelled = False
+
+    @property
+    def running(self) -> bool:
+        return bool(self.thread and self.thread.is_alive())
+
+    def start(self, duration: float, delay: float, room: str) -> bool:
+        if self.running:
+            return False
+        self.cancelled = False
+        self.thread = threading.Thread(target=self._run, args=(duration, delay, room), daemon=True)
+        self.thread.start()
+        return True
+
+    def cancel(self) -> None:
+        self.cancelled = True
+
+    def _run(self, duration: float, delay: float, room: str) -> None:
+        from app.calibrate import run_calibration
+        pub = lambda **k: self.hub.publish({"type": "calib", **k})
+        try:
+            for left in range(int(delay), 0, -1):
+                if self.cancelled:
+                    return pub(phase="cancelled")
+                pub(phase="countdown", seconds=left)
+                time.sleep(1)
+            pub(phase="recording", n=0, count=int(duration * self.hz))
+            last = [0.0]
+
+            def on_sample(n, count, s):
+                if time.monotonic() - last[0] > 0.5 or n == count:
+                    last[0] = time.monotonic()
+                    pub(phase="recording", n=n, count=count, rssi=s.rssi_dbm)
+
+            res = run_calibration(duration, self.hz, room, on_sample, lambda: self.cancelled)
+            pub(phase="cancelled" if res.get("cancelled") else "done", result=res)
+        except Exception as e:  # surfaced in the UI, not swallowed
+            pub(phase="error", message=str(e))
+
+
+def handler_for(hub: Hub, job: "CalibrationJob | None" = None):
     class H(BaseHTTPRequestHandler):
         def log_message(self, *a):
             pass
@@ -156,6 +202,42 @@ def handler_for(hub: Hub):
                     return
             else:
                 self.send_error(404)
+
+        def _json(self, code: int, obj: dict) -> None:
+            body = json.dumps(obj).encode()
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_POST(self):
+            # local UI only: same-origin + JSON body (a cross-site form post cannot set this content type
+            # without a CORS preflight, which this server never answers)
+            origin = self.headers.get("Origin", "")
+            host = self.headers.get("Host", "")
+            if (origin and origin != f"http://{host}") or not host.startswith(("127.0.0.1", "localhost")) \
+                    or not self.headers.get("Content-Type", "").startswith("application/json"):
+                return self._json(403, {"error": "forbidden"})
+            if job is None:
+                return self._json(409, {"error": "calibration unavailable in replay mode"})
+            try:
+                n = int(self.headers.get("Content-Length", "0"))
+                body = json.loads(self.rfile.read(min(n, 4096)) or b"{}")
+            except (ValueError, json.JSONDecodeError):
+                return self._json(400, {"error": "bad json"})
+            if self.path == "/api/calibrate":
+                duration = float(body.get("duration", 60))
+                delay = float(body.get("delay", 10))
+                room = str(body.get("room", "home"))[:40]
+                if not (20 <= duration <= 300 and 0 <= delay <= 60):
+                    return self._json(400, {"error": "duration 20-300 s, delay 0-60 s"})
+                ok = job.start(duration, delay, room)
+                return self._json(200 if ok else 409, {"started": ok})
+            if self.path == "/api/calibrate/cancel":
+                job.cancel()
+                return self._json(200, {"cancelled": True})
+            self._json(404, {"error": "not found"})
     return H
 
 
@@ -175,7 +257,8 @@ def main(argv=None) -> None:
     if not a.replay:
         threading.Thread(target=scanner, args=(hub,), daemon=True).start()
         threading.Thread(target=devices_loop, args=(hub, a.lan, a.router_distance), daemon=True).start()
-    srv = ThreadingHTTPServer(("127.0.0.1", a.port), handler_for(hub))
+    job = None if a.replay else CalibrationJob(hub, a.hz)
+    srv = ThreadingHTTPServer(("127.0.0.1", a.port), handler_for(hub, job))
     url = f"http://127.0.0.1:{a.port}"
     print(f"RF activity view: {url}  (Ctrl-C to stop)")
     if not a.no_browser:
