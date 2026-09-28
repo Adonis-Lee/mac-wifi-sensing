@@ -3,91 +3,202 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RF Activity View</title>
+<title>RF Sensing Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#05070d; --panel:rgba(8,14,26,.78); --line:#1b2a44; --txt:#cfe3ff; --dim:#6f86a8;
-          --green:#39ff7a; --blue:#3d7bff; --amber:#ffb13d; --red:#ff4d5e; }
-  html,body { margin:0; height:100%; background:var(--bg); color:var(--txt);
-              font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace; overflow:hidden; }
-  canvas#gl { position:fixed; inset:0; width:100%; height:100%; }
-  .panel { position:fixed; background:var(--panel); border:1px solid var(--line); border-radius:10px;
-           padding:12px 14px; backdrop-filter:blur(6px); }
-  #hud { top:16px; left:16px; width:250px; }
-  #hud h1 { font-size:12px; letter-spacing:.14em; color:var(--dim); margin:0 0 8px; font-weight:600; }
-  .big { font-size:34px; font-weight:700; color:#fff; }
-  .row { display:flex; justify-content:space-between; color:var(--dim); }
-  .row b { color:var(--txt); font-weight:500; }
-  #level { font-size:20px; font-weight:700; margin:10px 0 4px; }
-  #bar { font-size:16px; letter-spacing:1px; }
-  #state { font-size:20px; font-weight:700; margin:10px 0 2px; }
-  #timeline { width:100%; height:18px; display:block; margin:6px 0 2px; border-radius:3px; }
-  #spark { width:100%; height:60px; display:block; margin-top:8px; }
-  #note { bottom:16px; left:16px; right:16px; max-width:760px; color:var(--dim); font-size:11.5px; }
-  #note b { color:var(--amber); }
-  #banner { position:fixed; top:16px; left:50%; transform:translateX(-50%); display:flex; gap:14px;
-            align-items:center; padding:10px 22px; border-radius:12px; background:var(--panel);
-            border:2px solid var(--line); transition:border-color .4s, box-shadow .4s; }
-  #bicon { font-size:40px; line-height:1; }
-  #btext { font-size:28px; font-weight:800; letter-spacing:.06em; }
-  #bsub { font-size:10px; color:var(--dim); }
-  @media (max-width:900px){ #banner{top:auto; bottom:140px} }
-  #linknote { bottom:16px; left:16px; right:16px; max-width:760px; color:var(--dim); font-size:11.5px; }
-  #linknote b { color:var(--txt); }
-  #view { top:16px; right:16px; display:flex; gap:6px; padding:6px; }
-  #view button { background:#0d1830; color:var(--txt); border:1px solid var(--line); border-radius:6px;
-                 padding:6px 10px; font:inherit; cursor:pointer; }
-  #view button:hover { border-color:var(--blue); }
-  #err { color:var(--red); }
-  @media (max-width:600px){ #hud{width:auto; right:16px} #note{font-size:10.5px} }
+  :root {
+    --bg:#04060b; --surface:rgba(10,16,28,.82); --surface-2:rgba(18,27,45,.9); --border:rgba(148,178,230,.14);
+    --border-strong:rgba(148,178,230,.28); --txt:#e6eefc; --txt-2:#a9b9d3; --dim:#8196b6;
+    --ok:#3ee27f; --warn:#ffb547; --bad:#ff5a6a; --info:#4d8dff; --ble:#ff6fd8; --ghz6:#b77bff;
+    --radius:12px; --radius-sm:8px; --gap:12px;
+    --font-ui:"Fira Sans",system-ui,-apple-system,sans-serif; --font-num:"Fira Code",ui-monospace,Menlo,monospace;
+    --shadow:0 10px 30px rgba(0,0,0,.45);
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--txt); font:14px/1.5 var(--font-ui); overflow:hidden; }
+  canvas#gl { position:fixed; inset:0; width:100%; height:100%; display:block; }
+  .num { font-family:var(--font-num); font-variant-numeric:tabular-nums; }
+  .panel { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+           backdrop-filter:blur(10px) saturate(1.2); -webkit-backdrop-filter:blur(10px) saturate(1.2); box-shadow:var(--shadow); }
+  .eyebrow { font:600 11px/1 var(--font-ui); letter-spacing:.12em; text-transform:uppercase; color:var(--dim); margin:0 0 10px;
+             display:flex; align-items:center; gap:8px; }
+  .eyebrow svg { width:14px; height:14px; }
+  section + section { border-top:1px solid var(--border); margin-top:14px; padding-top:14px; }
+  svg.i { width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+
+  /* top bar */
+  #topbar { position:fixed; top:12px; left:16px; right:16px; height:60px; display:flex; align-items:center; gap:16px; padding:0 12px 0 16px; }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:600; white-space:nowrap; }
+  .brand small { color:var(--dim); font-weight:500; }
+  .logo { width:30px; height:30px; border-radius:8px; display:grid; place-items:center; background:rgba(77,141,255,.14); color:var(--info); }
+  .pill { font:600 11px/1 var(--font-num); letter-spacing:.06em; padding:5px 8px; border-radius:999px; border:1px solid currentColor; }
+  #banner { margin:0 0 0 auto; display:flex; align-items:center; gap:10px; padding:6px 14px 6px 8px; border-radius:999px;
+            background:var(--surface-2); border:1px solid var(--border-strong); transition:border-color .25s, box-shadow .25s; min-width:0; }
+  #bicon { width:36px; height:36px; border-radius:50%; display:grid; place-items:center; background:rgba(255,255,255,.05); flex:none; }
+  #bicon svg { width:20px; height:20px; }
+  #btext { font:700 16px/1.1 var(--font-ui); letter-spacing:.04em; white-space:nowrap; }
+  #bsub { font-size:11px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:320px; }
+  #view { display:flex; gap:8px; align-items:center; margin-left:auto; }
+  .seg { display:inline-flex; padding:3px; border-radius:10px; background:rgba(255,255,255,.04); border:1px solid var(--border); }
+  .seg button, .iconbtn { font:500 13px var(--font-ui); color:var(--txt-2); background:transparent; border:0; border-radius:7px;
+           min-height:36px; padding:0 12px; cursor:pointer; transition:background .15s, color .15s; display:inline-flex; align-items:center; gap:6px; }
+  .seg button:hover, .iconbtn:hover { color:var(--txt); background:rgba(255,255,255,.06); }
+  .seg button[aria-pressed="true"] { color:#fff; background:rgba(77,141,255,.25); box-shadow:inset 0 0 0 1px rgba(77,141,255,.5); }
+  .iconbtn { width:40px; padding:0; justify-content:center; border:1px solid var(--border); }
+  button:focus-visible, summary:focus-visible { outline:2px solid var(--info); outline-offset:2px; }
+
+  /* side rails */
+  #rails { position:fixed; top:88px; bottom:96px; left:16px; right:16px; pointer-events:none;
+           display:flex; justify-content:space-between; gap:var(--gap); }
+  #rails > aside { pointer-events:auto; width:292px; padding:16px; overflow:auto; max-height:100%; align-self:flex-start; }
+  .big { display:flex; align-items:baseline; gap:6px; }
+  .big .num { font-size:44px; font-weight:600; letter-spacing:-.02em; line-height:1; }
+  .big small { color:var(--dim); font-size:14px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
+  .metric { background:rgba(255,255,255,.03); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 10px; }
+  .metric span { display:block; font-size:11px; color:var(--dim); letter-spacing:.04em; }
+  .metric b { display:block; font:500 14px/1.3 var(--font-num); color:var(--txt); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .row { display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:4px 0; color:var(--txt-2); font-size:13px; }
+  .row b { font:500 13px var(--font-num); color:var(--txt); text-align:right; }
+  #state { font:700 22px/1.2 var(--font-ui); letter-spacing:.02em; margin-bottom:8px; }
+  .meter { height:8px; border-radius:99px; background:rgba(255,255,255,.07); overflow:hidden; }
+  .meter i { display:block; height:100%; width:0; border-radius:inherit; background:var(--ok); transition:width .3s, background .3s; }
+  #timeline { width:100%; height:22px; display:block; margin:10px 0 6px; border-radius:6px; }
+  .legend { display:flex; gap:14px; font-size:12px; color:var(--txt-2); flex-wrap:wrap; }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:-1px; }
+  #level { font:700 15px var(--font-ui); letter-spacing:.04em; margin-bottom:8px; }
+  #bar { display:grid; grid-template-columns:repeat(10,1fr); gap:3px; margin-bottom:10px; }
+  #bar i { height:14px; border-radius:3px; background:rgba(255,255,255,.07); transition:background .25s; }
+  #spark { width:100%; height:96px; display:block; }
+  #err:empty { display:none; }
+  #err { position:fixed; top:84px; left:50%; transform:translateX(-50%); color:#fff; background:rgba(255,90,106,.18);
+         border:1px solid var(--bad); padding:8px 14px; border-radius:10px; font-size:13px; }
+
+  /* footer */
+  #footer { position:fixed; left:16px; right:16px; bottom:12px; display:flex; gap:var(--gap); align-items:flex-end; pointer-events:none; }
+  #footer > * { pointer-events:auto; }
+  #note, #linknote { flex:1; max-width:880px; padding:10px 14px; font-size:13px; color:var(--txt-2); }
+  #note summary, #linknote summary { cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px; color:var(--txt); min-height:28px; }
+  #note summary::-webkit-details-marker, #linknote summary::-webkit-details-marker { display:none; }
+  details[open] summary .chev { transform:rotate(180deg); }
+  .chev { margin-left:auto; transition:transform .2s; color:var(--dim); }
+  #note p, #linknote p { margin:8px 0 2px; }
+  #note b { color:var(--warn); font-weight:600; }
+  #linknote b { color:var(--txt); font-weight:600; }
+  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin:0 4px 0 2px; vertical-align:0; }
+  #sys { padding:10px 14px; width:292px; }
+  #sys .row { padding:2px 0; font-size:12px; }
+
+  @media (max-width:1100px) { #bsub { display:none; } .brand small { display:none; } }
+  @media (max-width:900px) {
+    #topbar { height:auto; flex-wrap:wrap; padding:10px; gap:10px; }
+    #banner { order:3; width:100%; margin:0; }
+    #rails { top:auto; bottom:0; left:0; right:0; max-height:46vh; overflow:auto; flex-direction:column; padding:0 12px 12px;
+             pointer-events:auto; }
+    #rails > aside { width:100%; overflow:visible; max-height:none; }
+    #footer { display:none; }
+    .big .num { font-size:36px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
 </style>
 </head>
 <body>
-<canvas id="gl"></canvas>
+<canvas id="gl" aria-label="RF aktivite 3B şematik görünümü" role="img"></canvas>
 
-<div id="hud" class="panel">
-  <h1>MAC WI-FI · RSSI-ONLY · <span id="src">--</span></h1>
-  <div class="big"><span id="rssi">--</span> <small>dBm</small></div>
-  <div class="row">noise <b id="noise">--</b></div>
-  <div class="row">SNR <b id="snr">--</b></div>
-  <div class="row">channel <b id="ch">--</b></div>
-  <div class="row">PHY <b id="phy">--</b></div>
-  <div class="row">rate (actual) <b id="rate">--</b></div>
-  <div class="row">read / proc <b id="lat">--</b></div>
-  <div class="row">server CPU / RAM <b id="perf">--</b></div>
-  <div class="row" title="Boş uzay modeline göre fazla kayıp. Duvar tespiti değildir.">excess loss <b id="wall">-- (--router-distance)</b></div>
-  <div id="state">STATE: --</div>
-  <div class="row">confidence <b id="conf">--</b></div>
-  <canvas id="timeline"></canvas>
-  <div class="row" style="font-size:11px"><span style="color:#39ff7a">■ ABSENT</span><span style="color:#ffb13d">■ STILL</span><span style="color:#ff4d5e">■ ACTIVE</span></div>
-  <div id="level">RF ACTIVITY: --</div>
-  <div id="bar">░░░░░░░░░░</div>
-  <div class="row">rolling std (3 s) <b id="std">--</b></div>
-  <div class="row">threshold <b id="floor">--</b></div>
-  <div class="row">mean shift <b id="shift">--</b></div>
-  <div class="row">mode <b id="mode">--</b></div>
-  <canvas id="spark"></canvas>
-  <div id="err"></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><path d="M12 20h.01"/></symbol>
+  <symbol id="i-absent" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/></symbol>
+  <symbol id="i-still" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5"/><path d="M12 8v7M8 11h8M10 22l2-7 2 7"/></symbol>
+  <symbol id="i-active" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+  <symbol id="i-wait" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/></symbol>
+  <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12h4l2-6 4 12 2-6h6"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></symbol>
+</svg>
+
+<header id="topbar" class="panel">
+  <div class="brand"><span class="logo"><svg class="i"><use href="#i-wifi"/></svg></span>
+    <span>RF Sensing <small>· MacBook RSSI-only</small></span>
+    <span id="src" class="pill">--</span></div>
+  <div id="banner" role="status" aria-live="polite"><div id="bicon"><svg class="i"><use href="#i-wait"/></svg></div>
+    <div><div id="btext">BAĞLANIYOR</div><div id="bsub">durum ikonu · algılanmış bir figür değildir</div></div></div>
+  <nav id="view" aria-label="Görünüm">
+    <div class="seg" role="group" aria-label="Mod"><button data-m="activity" aria-pressed="true">Aktivite</button><button data-m="links" aria-pressed="false">Bağlantılar</button></div>
+    <div class="seg" role="group" aria-label="Kamera"><button data-v="persp" aria-pressed="true">3D</button><button data-v="top" aria-pressed="false">Üstten</button></div>
+  </nav>
+</header>
+
+<div id="rails">
+  <aside class="panel" aria-label="Wi-Fi link ölçümleri">
+    <section>
+      <h2 class="eyebrow"><svg class="i"><use href="#i-wifi"/></svg>Wi-Fi link · canlı</h2>
+      <div class="big"><span class="num" id="rssi">--</span><small>dBm RSSI</small></div>
+      <div class="grid">
+        <div class="metric"><span>Noise</span><b id="noise">--</b></div>
+        <div class="metric"><span>SNR</span><b id="snr">--</b></div>
+        <div class="metric"><span>Kanal</span><b id="ch">--</b></div>
+        <div class="metric"><span>PHY</span><b id="phy">--</b></div>
+        <div class="metric"><span>Örnekleme</span><b id="rate">--</b></div>
+        <div class="metric"><span>Tx hızı</span><b id="tx">--</b></div>
+      </div>
+    </section>
+    <section>
+      <h2 class="eyebrow"><svg class="i"><use href="#i-chart"/></svg>RSSI · son 60 s</h2>
+      <canvas id="spark" aria-label="Son 60 saniyenin RSSI grafiği" role="img"></canvas>
+    </section>
+  </aside>
+
+  <aside class="panel" aria-label="Durum ve aktivite">
+    <section>
+      <h2 class="eyebrow"><svg class="i"><use href="#i-pulse"/></svg>Durum · kural tabanlı</h2>
+      <div id="state">--</div>
+      <div class="row"><span>Güven</span><b id="conf">--</b></div>
+      <div class="meter" aria-hidden="true"><i id="confbar"></i></div>
+      <canvas id="timeline" aria-label="Son 60 saniyenin durum zaman çizelgesi" role="img"></canvas>
+      <div class="legend"><span><i style="background:var(--ok);height:5px"></i>Boş</span><span><i style="background:var(--warn);height:8px"></i>Hareketsiz</span><span><i style="background:var(--bad);height:12px"></i>Aktif</span></div>
+    </section>
+    <section>
+      <h2 class="eyebrow"><svg class="i"><use href="#i-active"/></svg>RF aktivite</h2>
+      <div id="level">--</div>
+      <div id="bar" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="row"><span>Rolling std (3 s)</span><b id="std">--</b></div>
+      <div class="row"><span>Eşik</span><b id="floor">--</b></div>
+      <div class="row"><span>Ortalama kayma</span><b id="shift">--</b></div>
+      <div class="row"><span>Mod</span><b id="mode">--</b></div>
+    </section>
+  </aside>
 </div>
 
-<div id="banner"><div id="bicon">◯</div><div><div id="btext">--</div>
-  <div id="bsub">status icon · not a detected figure</div></div></div>
-<div id="view" class="panel">
-  <button data-m="activity">Aktivite</button><button data-m="links">Bağlantılar</button><span style="width:8px"></span><button data-v="persp">3D</button><button data-v="top">Üstten</button>
-</div>
+<div id="err" role="alert"></div>
 
-<div id="linknote" class="panel" style="display:none">
-  <b>Bağlantılar</b> · merkez: MacBook · <span style="color:#39ff7a">yeşil ışın</span>: bağlı olunan router (canlı RSSI, 5 Hz)<br>
-  diğer noktalar: çevredeki Wi-Fi ağları (~5 sn'de bir tarama) · <span style="color:#3d7bff">● 5 GHz</span> <span style="color:#ffb13d">● 2.4 GHz</span> <span style="color:#b36bff">● 6 GHz</span><br>
-  Merkeze uzaklık = <b>sinyal gücü</b> (halkalar: −50 / −70 / −90 dBm), gerçek mesafe değil. <b>Yön bilinmiyor</b>; açılar kanal sırasına göre dizildi.
-  Ağ adları konum izni olmadan gizli. <span id="netcount"></span><br>
-  <span style="color:#ff5fd2">● Bluetooth</span>: <span id="blestat">--</span> · Ev ağı (ARP): <span id="lanstat">kapalı (--lan)</span>
-</div>
-<div id="note" class="panel">
-  <b>Bu bir insan görüntüsü değildir.</b> Tek bir link (router → MacBook) üzerindeki gerçek RSSI
-  değişiminin şematik gösterimidir. Router/Mac konumları ve mesafe temsilidir, ölçek yoktur.
-  Karo parlaklığı <b>konum değil</b>, link genelindeki aktivite şiddetidir. STATE kural tabanlıdır; eşikler boş oda + birkaç ev kaydından türetildi (geçici, tek kişi/oda). Doğruluğu deneysel olarak doğrulanması gerekiyor. Kişi sayısı, konum, silüet ve poz bu
-  RSSI-only sistemde mümkün değil. Link ışınının sönmesi ölçülen zayıflamayı (baseline a göre dB) gösterir; üstteki ikon bir <b>durum ikonudur</b>, algılanmış bir figür değildir.
-</div>
+<footer id="footer">
+  <details id="note" class="panel">
+    <summary><svg class="i"><use href="#i-info"/></svg><span><b>Şematik gösterim</b> — insan görüntüsü, konum veya silüet değildir.</span><svg class="i chev"><use href="#i-chev"/></svg></summary>
+    <p>Tek bir link (router → MacBook) üzerindeki gerçek RSSI değişiminin şematik gösterimidir. Router/Mac konumları temsilidir, ölçek yoktur.
+    Karo parlaklığı <b>konum değil</b>, link genelindeki aktivite şiddetidir; link ışınının sönmesi ölçülen zayıflamayı (baseline'a göre dB) gösterir.
+    Üstteki ikon bir <b>durum ikonudur</b>. Durum kural tabanlıdır; eşikler boş oda + birkaç kayıttan türetildi (geçici, tek kişi/oda) ve doğruluğu
+    deneysel olarak doğrulanması gerekiyor. Kişi sayısı, konum, silüet ve poz bu RSSI-only sistemde mümkün değil.</p>
+  </details>
+  <details id="linknote" class="panel" style="display:none">
+    <summary><svg class="i"><use href="#i-info"/></svg><span><b>Bağlantılar</b> — uzaklık = sinyal gücü, yön bilinmiyor. <span id="netcount"></span></span><svg class="i chev"><use href="#i-chev"/></svg></summary>
+    <p>Merkez: MacBook · <span class="dot" style="background:var(--ok)"></span>bağlı router (canlı RSSI, 5 Hz) ·
+    <span class="dot" style="background:var(--info)"></span>5 GHz <span class="dot" style="background:var(--warn)"></span>2.4 GHz
+    <span class="dot" style="background:var(--ghz6)"></span>6 GHz Wi-Fi ağları (~5 sn'de bir tarama) ·
+    <span class="dot" style="background:var(--ble)"></span>Bluetooth: <span id="blestat">--</span> · Ev ağı (ARP): <span id="lanstat">kapalı (--lan)</span></p>
+    <p>Halkalar −50 / −70 / −90 dBm. Merkeze uzaklık <b>sinyal gücüdür</b>, gerçek mesafe değil. <b>Yön bilinmiyor</b>; açılar kanal sırasına göre dizildi. Ağ adları konum izni olmadan gizli.</p>
+  </details>
+  <div id="sys" class="panel" aria-label="Sistem">
+    <h2 class="eyebrow" style="margin-bottom:6px"><svg class="i"><use href="#i-cpu"/></svg>Sistem</h2>
+    <div class="row"><span>Okuma / işleme</span><b id="lat">--</b></div>
+    <div class="row"><span>Sunucu CPU / RAM</span><b id="perf">--</b></div>
+    <div class="row" title="Boş uzay modeline göre fazla kayıp. Duvar tespiti değildir."><span>Fazla kayıp</span><b id="wall">kapalı</b></div>
+  </div>
+</footer>
 
 <script type="importmap">
 { "imports": {
@@ -103,13 +214,16 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("gl"), antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x05070d, 0.045);
+scene.fog = new THREE.FogExp2(0x04060b, 0.045);
 const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.target.set(0, 0.8, 0);
+const press = (sel, v, key) => document.querySelectorAll(sel).forEach(b => b.setAttribute("aria-pressed", String(b.dataset[key] === v)));
 function setView(v) {
-  if (v === "top") camera.position.set(0, links.visible ? 20 : 16, 0.01); else camera.position.set(-7, 6, 10);
+  press("#view button[data-v]", v, "v");
+  const k = Math.min(1.8, Math.max(1, 1400 / innerWidth));  // narrow screens: pull back so the side rails don't cover the nodes
+  if (v === "top") camera.position.set(0, (links.visible ? 20 : 16) * k, 0.01); else camera.position.set(-7 * k, 6 * k, 10 * k);
   controls.update();
 }
 setView("persp");
@@ -142,67 +256,68 @@ function node(x, color, label) {
     new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.4 }));
   pole.position.y = 0.5; g.add(pole);
   const c = document.createElement("canvas"); c.width = 256; c.height = 64;
-  const x2 = c.getContext("2d"); x2.fillStyle = "#cfe3ff"; x2.font = "28px Menlo"; x2.textAlign = "center";
+  const x2 = c.getContext("2d"); x2.fillStyle = "#e6eefc"; x2.font = "500 26px Fira Code, Menlo"; x2.textAlign = "center";
   x2.fillText(label, 128, 40);
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthWrite: false }));
   sp.scale.set(2, 0.5, 1); sp.position.y = 1.55; g.add(sp);
   g.position.x = x; scene.add(g); return g;
 }
 const LX = 4.2;
-node(-LX, 0x3d7bff, "ROUTER");
+node(-LX, 0x4d8dff, "ROUTER");
 node(LX, 0xcfe3ff, "MACBOOK");
 
 // link zone: wireframe ellipsoid (Fresnel-zone style, schematic)
 const ell = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 20),
-  new THREE.MeshBasicMaterial({ color: 0x3d7bff, wireframe: true, transparent: true, opacity: 0.35 }));
+  new THREE.MeshBasicMaterial({ color: 0x4d8dff, wireframe: true, transparent: true, opacity: 0.35 }));
 ell.scale.set(LX, 1.1, 1.1); ell.position.y = 1.0; scene.add(ell);
 const basePos = ell.geometry.attributes.position.array.slice();
 
 // link beam: brightness = measured attenuation vs empty baseline (whole link, not a position)
 const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2 * LX, 12, 1, true),
-  new THREE.MeshBasicMaterial({ color: 0x39ff7a, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending }));
+  new THREE.MeshBasicMaterial({ color: 0x3ee27f, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending }));
 beam.rotation.z = Math.PI / 2; beam.position.y = 1.0; scene.add(beam);
 const glow = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 2 * LX, 16, 1, true),
-  new THREE.MeshBasicMaterial({ color: 0x39ff7a, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending, depthWrite: false }));
+  new THREE.MeshBasicMaterial({ color: 0x3ee27f, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending, depthWrite: false }));
 glow.rotation.z = Math.PI / 2; glow.position.y = 1.0; scene.add(glow);
 
 // particles travelling along the link
 const P = 400, pGeo = new THREE.BufferGeometry(), pPos = new Float32Array(P * 3), pSeed = new Float32Array(P * 3);
 for (let i = 0; i < P; i++) { pSeed[i*3] = Math.random(); pSeed[i*3+1] = Math.random()*6.28; pSeed[i*3+2] = Math.random(); }
 pGeo.setAttribute("position", new THREE.BufferAttribute(pPos, 3));
-const pts = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0x39ff7a, size: 0.06,
+const pts = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0x3ee27f, size: 0.06,
   transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
 scene.add(pts);
 
 // ---------- links view: measured networks around the Mac ----------
 const links = new THREE.Group(); links.visible = false; scene.add(links);
+links.rotation.y = Math.PI / 2;  // connected router points "up" the screen, between the side rails
 const R = rssi => 1.2 + Math.min(1, Math.max(0, (-40 - rssi) / 55)) * 7.5;   // dBm -> radius (not distance)
-const BAND_COL = { "5GHz": 0x3d7bff, "2.4GHz": 0xffb13d, "6GHz": 0xb36bff };
+const BAND_COL = { "5GHz": 0x4d8dff, "2.4GHz": 0xffb547, "6GHz": 0xb77bff };
 function ring(dbm) {
   const r = R(dbm), g = new THREE.BufferGeometry().setFromPoints(
     Array.from({ length: 97 }, (_, i) => new THREE.Vector3(Math.cos(i / 96 * 6.283) * r, 0.02, Math.sin(i / 96 * 6.283) * r)));
   links.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x1b2a44 })));
-  const lbl = label(`${dbm} dBm`, "#6f86a8"); lbl.position.set(r + 0.1, 0.25, 0); lbl.scale.set(1.4, 0.35, 1); links.add(lbl);
+  const lbl = label(`${dbm} dBm`, "#8196b6"); lbl.position.set(r + 0.1, 0.25, 0); lbl.scale.set(1.4, 0.35, 1); links.add(lbl);
 }
 function label(text, color) {
   const c = document.createElement("canvas"); c.width = 256; c.height = 64;
-  const x = c.getContext("2d"); x.fillStyle = color; x.font = "26px Menlo"; x.textAlign = "center"; x.fillText(text, 128, 40);
+  const x = c.getContext("2d"); x.fillStyle = color; x.font = "500 24px Fira Code, Menlo"; x.textAlign = "center"; x.fillText(text, 128, 40);
   return new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthWrite: false, transparent: true }));
 }
 [-50, -70, -90].forEach(ring);
 const macDot = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.12, 0.42), new THREE.MeshBasicMaterial({ color: 0xcfe3ff }));
 macDot.position.y = 0.3; links.add(macDot);
-const macLbl = label("MACBOOK", "#cfe3ff"); macLbl.position.set(0, 0.8, 0); macLbl.scale.set(2, 0.5, 1); links.add(macLbl);
+const macLbl = label("MACBOOK", "#e6eefc"); macLbl.position.set(0, 0.8, 0); macLbl.scale.set(2, 0.5, 1); links.add(macLbl);
 // connected link (live)
-const apNode = new THREE.Mesh(new THREE.SphereGeometry(0.28, 20, 12), new THREE.MeshBasicMaterial({ color: 0x39ff7a }));
+const apNode = new THREE.Mesh(new THREE.SphereGeometry(0.28, 20, 12), new THREE.MeshBasicMaterial({ color: 0x3ee27f }));
 links.add(apNode);
-const apLbl = label("ROUTER", "#39ff7a"); apLbl.scale.set(2.4, 0.6, 1); links.add(apLbl);
+const apLbl = label("ROUTER", "#3ee27f"); apLbl.scale.set(2.4, 0.6, 1); links.add(apLbl);
 const apBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1, 10, 1, true),
-  new THREE.MeshBasicMaterial({ color: 0x39ff7a, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending }));
+  new THREE.MeshBasicMaterial({ color: 0x3ee27f, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending }));
 links.add(apBeam);
 const PK = 40, pkGeo = new THREE.BufferGeometry(), pkPos = new Float32Array(PK * 3);
 pkGeo.setAttribute("position", new THREE.BufferAttribute(pkPos, 3));
-links.add(new THREE.Points(pkGeo, new THREE.PointsMaterial({ color: 0x39ff7a, size: 0.12, transparent: true,
+links.add(new THREE.Points(pkGeo, new THREE.PointsMaterial({ color: 0x3ee27f, size: 0.12, transparent: true,
   blending: THREE.AdditiveBlending, depthWrite: false })));
 let others = new THREE.Group(); links.add(others);
 const link = { rssi: -70, rssiS: -70, snr: 20, tx: 0, ch: null };
@@ -239,9 +354,9 @@ function updateDevices(d) {
     devs.slice(0, 12).forEach((v, i) => {
       const ang = -1.45 + (i + 1) / 13 * 1.25, r = R(v.rssi_dbm);
       const x = Math.cos(ang) * r, z = Math.sin(ang) * r;
-      const dot = new THREE.Mesh(new THREE.OctahedronGeometry(0.16), new THREE.MeshBasicMaterial({ color: 0xff5fd2 }));
+      const dot = new THREE.Mesh(new THREE.OctahedronGeometry(0.16), new THREE.MeshBasicMaterial({ color: 0xff6fd8 }));
       dot.position.set(x, 0.5, z); bleGroup.add(dot);
-      const lb = label(`${v.name ?? "BLE"} ${v.rssi_dbm}`, "#ff5fd2"); lb.position.set(x, 0.9, z); lb.scale.set(1.5, 0.38, 1);
+      const lb = label(`${v.name ?? "BLE"} ${v.rssi_dbm}`, "#ff6fd8"); lb.position.set(x, 0.9, z); lb.scale.set(1.5, 0.38, 1);
       bleGroup.add(lb);
     });
   }
@@ -264,7 +379,9 @@ function animateLinks(t, dt) {
 const activityObjs = () => [ell, pts, beam, glow, ...scene.children.filter(o => o.isGroup && o !== links)];
 function setMode(m) {
   const L = m === "links"; links.visible = L; tiles.visible = !L;
-  if (L) { camera.position.set(0, 13, 11); controls.target.set(0, 0, 0); }
+  press("#view button[data-m]", m, "m");
+  if (L) { const k = Math.min(1.8, Math.max(1, 1250 / innerWidth));  // zoom out on narrow screens so side rails don't hide nodes
+           camera.position.set(0, 13 * k, 11 * k); controls.target.set(0, 0, 0); }
   else { controls.target.set(0, 0.8, 0); setView("persp"); }
   controls.update();
   activityObjs().forEach(o => o.visible = !L);
@@ -275,9 +392,14 @@ function setMode(m) {
 document.querySelectorAll("#view button[data-m]").forEach(b => b.onclick = () => setMode(b.dataset.m));
 
 // ---------- live data ----------
-const st = { stateCol: new THREE.Color(0x39ff7a), atten: 0, attenS: 0, sceneCol: new THREE.Color(0x39ff7a), states: [], intensity: 0, target: 0, jolt: 0, lastRssi: null, times: [], rssi: [] };
+const st = { stateCol: new THREE.Color(0x3ee27f), atten: 0, attenS: 0, sceneCol: new THREE.Color(0x3ee27f), states: [], intensity: 0, target: 0, jolt: 0, lastRssi: null, times: [], rssi: [] };
 const $ = id => document.getElementById(id);
-const COLORS = { LOW: "#39ff7a", MEDIUM: "#ffb13d", HIGH: "#ff4d5e", WARMUP: "#6f86a8" };
+const COLORS = { LOW: "#3ee27f", MEDIUM: "#ffb547", HIGH: "#ff5a6a", WARMUP: "#8196b6" };
+const LEVEL_TR = { LOW: "DÜŞÜK", MEDIUM: "ORTA", HIGH: "YÜKSEK", WARMUP: "ISINIYOR" };
+const STATE_TR = { ABSENT: "BOŞ", PRESENT_STILL: "VAR · HAREKETSİZ", ACTIVE: "AKTİF HAREKET" };
+const STATE_ICON = { ABSENT: "i-absent", PRESENT_STILL: "i-still", ACTIVE: "i-active" };
+const icon = id => `<svg class="i"><use href="#${id}"/></svg>`;
+const bars = [...document.querySelectorAll("#bar i")];
 
 const es = new EventSource("/stream");
 es.onmessage = ev => {
@@ -288,12 +410,14 @@ es.onmessage = ev => {
   if (d.error) { $("err").textContent = "ERROR: " + d.error; return; }
   $("err").textContent = d.associated ? "" : "Wi-Fi bağlı değil (rssiValue()==0)";
   $("src").textContent = d.source || "LIVE";
-  $("src").style.color = (d.source || "").startsWith("REPLAY") ? "#ffb13d" : "#39ff7a";
+  $("src").style.color = (d.source || "").startsWith("REPLAY") ? "#ffb547" : "#3ee27f";
+  $("src").title = d.source || "LIVE"; if ((d.source || "").startsWith("REPLAY")) $("src").textContent = "REPLAY";
   $("rssi").textContent = d.associated ? d.rssi_dbm : "--";
   $("noise").textContent = d.noise_dbm + " dBm";
   $("snr").textContent = d.associated ? (d.rssi_dbm - d.noise_dbm) + " dB" : "--";
   $("ch").textContent = `${d.channel} (${d.band})`;
   $("phy").textContent = d.phy_mode;
+  $("tx").textContent = Math.round(d.tx_rate_mbps) + " Mbps";
   if (d.perf) $("perf").textContent = `${d.perf.cpu_pct.toFixed(1)} % / ${d.perf.rss_mb.toFixed(0)} MB`;
   $("lat").textContent = `${d.read_ms.toFixed(1)} / ${d.proc_ms.toFixed(2)} ms`;
   st.times.push(d.t_mono); st.rssi.push(d.associated ? d.rssi_dbm : NaN);
@@ -306,66 +430,92 @@ es.onmessage = ev => {
   const a = d.activity;
   if (a) {
     st.target = a.level === "WARMUP" ? 0 : a.intensity;
-    $("level").textContent = "RF ACTIVITY: " + a.level;
+    $("level").textContent = LEVEL_TR[a.level] ?? a.level;
     $("level").style.color = COLORS[a.level];
     const n = Math.round(st.target * 10);
-    $("bar").textContent = "▓".repeat(n) + "░".repeat(10 - n);
-    $("bar").style.color = COLORS[a.level];
+    bars.forEach((b, i) => b.style.background = i < n ? COLORS[a.level] : "");
     $("std").textContent = a.std_db.toFixed(2) + " dB";
     $("floor").textContent = a.threshold_db.toFixed(2) + " dB";
     $("shift").textContent = a.mean_shift_db == null ? "--" : a.mean_shift_db.toFixed(2) + " dB";
-    $("mode").textContent = a.mode === "calibrated" ? "calibrated (empty room)" : "relative (uncalibrated)";
-    $("mode").style.color = a.mode === "calibrated" ? "#39ff7a" : "#ffb13d";
+    $("mode").textContent = a.mode === "calibrated" ? "kalibre (boş oda)" : "göreli (kalibrasyonsuz)";
+    $("mode").style.color = a.mode === "calibrated" ? "#3ee27f" : "#ffb547";
   }
   if (!d.state && d.associated) {
-    $("btext").textContent = "KALİBRASYON GEREKLİ"; $("btext").style.color = "#ffb13d";
-    $("bicon").textContent = "⚙";
+    $("btext").textContent = "KALİBRASYON GEREKLİ"; $("btext").style.color = "#ffb547";
+    $("bicon").innerHTML = icon("i-gear"); $("bicon").style.color = "#ffb547";
+    $("banner").style.borderColor = "#ffb54777"; $("banner").style.boxShadow = "none";
+    $("conf").textContent = "--"; $("confbar").style.width = "0";
     $("bsub").textContent = "python -m app.calibrate  ·  Mac sabit, oda boş";
-    $("state").textContent = "STATE: kalibrasyon yok"; $("state").style.color = "#6f86a8";
+    $("state").textContent = "Kalibrasyon yok"; $("state").style.color = "#8196b6";
   }
   if (d.state) {
-    $("bsub").textContent = "status icon · not a detected figure";
+    $("bsub").textContent = "durum ikonu · algılanmış bir figür değildir";
     const S = d.state, name = S.state === "PRESENT_STILL" ? "PRESENT (STILL)" : S.state;
-    $("state").textContent = "STATE: " + name;
+    $("state").textContent = STATE_TR[S.state] ?? name;
     $("state").style.color = STATE_COLORS[S.state];
     $("conf").textContent = (S.confidence * 100).toFixed(0) + " %";
+    $("confbar").style.width = (S.confidence * 100).toFixed(0) + "%"; $("confbar").style.background = STATE_COLORS[S.state];
     st.states.push([d.t_mono, S.state]);
     const col = STATE_COLORS[S.state];
-    $("btext").textContent = name; $("btext").style.color = col;
-    $("bicon").textContent = S.state === "ABSENT" ? "◯" : S.state === "ACTIVE" ? "🏃" : "🧍";
-    $("banner").style.borderColor = col; $("banner").style.boxShadow = `0 0 30px ${col}55`;
+    $("btext").textContent = STATE_TR[S.state] ?? name; $("btext").style.color = col;
+    $("bicon").innerHTML = icon(STATE_ICON[S.state]); $("bicon").style.color = col;
+    $("banner").style.borderColor = col + "99"; $("banner").style.boxShadow = `0 0 24px ${col}33`;
     st.stateCol.set(col); st.atten = Math.min(1, S.shift / 6);
   }
   while (st.states.length && st.states[0][0] < d.t_mono - 60) st.states.shift();
   drawTimeline(d.t_mono);
   drawSpark();
 };
-const STATE_COLORS = { ABSENT: "#39ff7a", PRESENT_STILL: "#ffb13d", ACTIVE: "#ff4d5e" };
+const STATE_COLORS = { ABSENT: "#3ee27f", PRESENT_STILL: "#ffb547", ACTIVE: "#ff5a6a" };
+const STATE_H = { ABSENT: 0.35, PRESENT_STILL: 0.7, ACTIVE: 1 };  // height = secondary encoding (not colour alone)
 function drawTimeline(now) {
-  const c = $("timeline"), x = c.getContext("2d"), w = c.width = c.clientWidth * 2, h = c.height = 36;
-  x.fillStyle = "#0d1830"; x.fillRect(0, 0, w, h);
+  const c = $("timeline"), x = c.getContext("2d"), w = c.width = c.clientWidth * 2, h = c.height = 44;
+  x.fillStyle = "rgba(255,255,255,.04)"; x.fillRect(0, 0, w, h);
   for (let i = 0; i < st.states.length; i++) {
     const [t, s] = st.states[i], t2 = i + 1 < st.states.length ? st.states[i + 1][0] : now;
+    const bh = h * STATE_H[s];
     x.fillStyle = STATE_COLORS[s];
-    x.fillRect((t - now + 60) / 60 * w, 0, Math.max(1, (t2 - t) / 60 * w + 1), h);
+    x.fillRect((t - now + 60) / 60 * w, h - bh, Math.max(1, (t2 - t) / 60 * w - 0.5), bh);
   }
 }
 es.onerror = () => { $("err").textContent = "Sunucu bağlantısı yok (python -m app.visual çalışıyor mu?)"; };
 
+const spark = { hover: null };
 function drawSpark() {
-  const c = $("spark"), x = c.getContext("2d"), w = c.width = c.clientWidth * 2, h = c.height = 120;
+  const c = $("spark"), x = c.getContext("2d"), dpr = 2, w = c.width = c.clientWidth * dpr, h = c.height = c.clientHeight * dpr;
   const v = st.rssi.filter(Number.isFinite); if (v.length < 2) return;
-  const lo = Math.min(...v) - 1, hi = Math.max(...v) + 1, t0 = st.times[0], t1 = st.times.at(-1);
-  x.strokeStyle = "#3d7bff"; x.lineWidth = 2; x.beginPath();
-  st.times.forEach((t, i) => { const y = h - (st.rssi[i] - lo) / (hi - lo) * h, X = (t - t0) / Math.max(1, t1 - t0) * w;
-    i ? x.lineTo(X, y) : x.moveTo(X, y); });
-  x.stroke(); x.fillStyle = "#6f86a8"; x.font = "20px Menlo";
-  x.fillText(`${hi - 1} dBm`, 4, 20); x.fillText(`${lo + 1} dBm · 60 s`, 4, h - 6);
+  const lo = Math.floor(Math.min(...v)) - 1, hi = Math.ceil(Math.max(...v)) + 1, now = st.times.at(-1);
+  const pad = { l: 64, r: 8, t: 8, b: 24 }, W = w - pad.l - pad.r, H = h - pad.t - pad.b;
+  const X = t => pad.l + (t - (now - 60)) / 60 * W, Y = r => pad.t + (hi - r) / (hi - lo) * H;
+  // recessive grid + axis labels in text tokens
+  x.font = "500 20px Fira Code, Menlo"; x.fillStyle = "#8196b6"; x.strokeStyle = "rgba(148,178,230,.12)"; x.lineWidth = 1;
+  const step = Math.max(1, Math.ceil((hi - lo) / 3));
+  for (let r = hi; r >= lo; r -= step) { x.beginPath(); x.moveTo(pad.l, Y(r)); x.lineTo(w - pad.r, Y(r)); x.stroke(); x.fillText(String(r), 4, Y(r) + 7); }
+  x.fillText("−60 s", pad.l, h - 2); x.textAlign = "right"; x.fillText("şimdi", w - pad.r, h - 2); x.textAlign = "left";
+  // area + 2px line
+  const pts = st.times.map((t, i) => [X(t), st.rssi[i]]).filter(p => Number.isFinite(p[1]));
+  const g = x.createLinearGradient(0, pad.t, 0, pad.t + H); g.addColorStop(0, "rgba(77,141,255,.35)"); g.addColorStop(1, "rgba(77,141,255,0)");
+  x.beginPath(); pts.forEach(([px, r], i) => i ? x.lineTo(px, Y(r)) : x.moveTo(px, Y(r)));
+  x.lineTo(pts.at(-1)[0], pad.t + H); x.lineTo(pts[0][0], pad.t + H); x.closePath(); x.fillStyle = g; x.fill();
+  x.beginPath(); pts.forEach(([px, r], i) => i ? x.lineTo(px, Y(r)) : x.moveTo(px, Y(r)));
+  x.strokeStyle = "#4d8dff"; x.lineWidth = 4; x.lineJoin = "round"; x.stroke();
+  // hover crosshair + tooltip
+  const hx = spark.hover;
+  if (hx != null && hx * dpr >= pad.l) {
+    let best = pts[0]; for (const p of pts) if (Math.abs(p[0] - hx * dpr) < Math.abs(best[0] - hx * dpr)) best = p;
+    x.strokeStyle = "rgba(230,238,252,.45)"; x.beginPath(); x.moveTo(best[0], pad.t); x.lineTo(best[0], pad.t + H); x.stroke();
+    x.fillStyle = "#e6eefc"; x.beginPath(); x.arc(best[0], Y(best[1]), 7, 0, 7); x.fill();
+    const ago = ((w - pad.r - best[0]) / W * 60).toFixed(0), label = `${best[1]} dBm · −${ago} s`;
+    x.font = "600 22px Fira Code, Menlo"; const tw = x.measureText(label).width + 20, tx = Math.min(best[0] + 12, w - tw - 4);
+    x.fillStyle = "rgba(18,27,45,.95)"; x.fillRect(tx, pad.t, tw, 34); x.fillStyle = "#e6eefc"; x.fillText(label, tx + 10, pad.t + 24);
+  }
 }
+$("spark").addEventListener("pointermove", e => { spark.hover = e.offsetX; drawSpark(); });
+$("spark").addEventListener("pointerleave", () => { spark.hover = null; drawSpark(); });
 
 // ---------- animate ----------
-const col = new THREE.Color(), dim = new THREE.Color(0x0b3a1c), hot = new THREE.Color(0x39ff7a),
-      red = new THREE.Color(0xff4d5e), blue = new THREE.Color(0x3d7bff);
+const col = new THREE.Color(), dim = new THREE.Color(0x0b3a1c), hot = new THREE.Color(0x3ee27f),
+      red = new THREE.Color(0xff5a6a), blue = new THREE.Color(0x4d8dff);
 function resize() {
   const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false);
   camera.aspect = w / h; camera.updateProjectionMatrix();
