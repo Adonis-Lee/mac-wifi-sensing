@@ -58,6 +58,20 @@ def replay_stream(path: Path, speed: float = 1.0):
             yield s
 
 
+def scanner(hub: Hub, period_s: float = 5.0) -> None:
+    """Nearby networks every few seconds (anonymous without Location Services)."""
+    import subprocess
+    from app.backend import HELPER
+    while True:
+        try:
+            out = subprocess.run([str(HELPER), "--scan-once"], capture_output=True, text=True, timeout=15)
+            if out.returncode == 0:
+                hub.publish({"type": "scan", **json.loads(out.stdout)})
+        except (subprocess.TimeoutExpired, json.JSONDecodeError):
+            pass
+        time.sleep(period_s)
+
+
 def collector(hub: Hub, hz: float, replay: Path | None = None) -> None:
     meter = ActivityMeter(hz, calibration=load_calibration())
     rules = load_rules()
@@ -136,6 +150,8 @@ def main(argv=None) -> None:
     a = ap.parse_args(argv)
     hub = Hub()
     threading.Thread(target=collector, args=(hub, a.hz, a.replay), daemon=True).start()
+    if not a.replay:
+        threading.Thread(target=scanner, args=(hub,), daemon=True).start()
     srv = ThreadingHTTPServer(("127.0.0.1", a.port), handler_for(hub))
     url = f"http://127.0.0.1:{a.port}"
     print(f"RF activity view: {url}  (Ctrl-C to stop)")

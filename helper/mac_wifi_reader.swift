@@ -46,6 +46,26 @@ guard let iface = CWWiFiClient.shared().interface() else {
 
 let iso = ISO8601DateFormatter()
 iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+// --scan-once: one JSON line listing visible networks (results may be cached by macOS;
+// ssid/bssid are nil without Location Services, so networks are anonymous).
+if CommandLine.arguments.contains("--scan-once") {
+    do {
+        let nets = try iface.scanForNetworks(withSSID: nil)
+        let list: [[String: Any]] = nets.map { n in [
+            "rssi_dbm": n.rssiValue, "noise_dbm": n.noiseMeasurement,
+            "channel": n.wlanChannel.map { $0.channelNumber } ?? NSNull(),
+            "band": n.wlanChannel.map { bandName($0.channelBand) } ?? NSNull(),
+            "ssid": n.ssid ?? NSNull(),
+        ] }
+        let o: [String: Any] = ["timestamp": iso.string(from: Date()), "networks": list]
+        print(String(data: try JSONSerialization.data(withJSONObject: o, options: [.sortedKeys]), encoding: .utf8)!)
+        exit(0)
+    } catch {
+        FileHandle.standardError.write("ERROR: scan failed: \(error)\n".data(using: .utf8)!)
+        exit(3)
+    }
+}
 let period = 1.0 / max(hz, 0.01)
 var n = 0
 var next = Date()

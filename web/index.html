@@ -31,6 +31,8 @@
   #btext { font-size:28px; font-weight:800; letter-spacing:.06em; }
   #bsub { font-size:10px; color:var(--dim); }
   @media (max-width:900px){ #banner{top:auto; bottom:140px} }
+  #linknote { bottom:16px; left:16px; right:16px; max-width:760px; color:var(--dim); font-size:11.5px; }
+  #linknote b { color:var(--txt); }
   #view { top:16px; right:16px; display:flex; gap:6px; padding:6px; }
   #view button { background:#0d1830; color:var(--txt); border:1px solid var(--line); border-radius:6px;
                  padding:6px 10px; font:inherit; cursor:pointer; }
@@ -69,9 +71,15 @@
 <div id="banner"><div id="bicon">◯</div><div><div id="btext">--</div>
   <div id="bsub">status icon · not a detected figure</div></div></div>
 <div id="view" class="panel">
-  <button data-v="persp">3D</button><button data-v="top">Üstten</button>
+  <button data-m="activity">Aktivite</button><button data-m="links">Bağlantılar</button><span style="width:8px"></span><button data-v="persp">3D</button><button data-v="top">Üstten</button>
 </div>
 
+<div id="linknote" class="panel" style="display:none">
+  <b>Bağlantılar</b> · merkez: MacBook · <span style="color:#39ff7a">yeşil ışın</span>: bağlı olunan router (canlı RSSI, 5 Hz)<br>
+  diğer noktalar: çevredeki Wi-Fi ağları (~5 sn'de bir tarama) · <span style="color:#3d7bff">● 5 GHz</span> <span style="color:#ffb13d">● 2.4 GHz</span> <span style="color:#b36bff">● 6 GHz</span><br>
+  Merkeze uzaklık = <b>sinyal gücü</b> (halkalar: −50 / −70 / −90 dBm), gerçek mesafe değil. <b>Yön bilinmiyor</b>; açılar kanal sırasına göre dizildi.
+  Ağ adları konum izni olmadan gizli. <span id="netcount"></span>
+</div>
 <div id="note" class="panel">
   <b>Bu bir insan görüntüsü değildir.</b> Tek bir link (router → MacBook) üzerindeki gerçek RSSI
   değişiminin şematik gösterimidir. Router/Mac konumları ve mesafe temsilidir, ölçek yoktur.
@@ -99,11 +107,11 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.target.set(0, 0.8, 0);
 function setView(v) {
-  if (v === "top") camera.position.set(0, 16, 0.01); else camera.position.set(-7, 6, 10);
+  if (v === "top") camera.position.set(0, links.visible ? 20 : 16, 0.01); else camera.position.set(-7, 6, 10);
   controls.update();
 }
 setView("persp");
-document.querySelectorAll("#view button").forEach(b => b.onclick = () => setView(b.dataset.v));
+document.querySelectorAll("#view button[data-v]").forEach(b => b.onclick = () => setView(b.dataset.v));
 
 // floor tiles: brightness = activity intensity, rippling out from the link (NOT a location)
 const N = 26, S = 0.62;
@@ -164,6 +172,83 @@ const pts = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0x39ff7a, s
   transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
 scene.add(pts);
 
+// ---------- links view: measured networks around the Mac ----------
+const links = new THREE.Group(); links.visible = false; scene.add(links);
+const R = rssi => 1.2 + Math.min(1, Math.max(0, (-40 - rssi) / 55)) * 7.5;   // dBm -> radius (not distance)
+const BAND_COL = { "5GHz": 0x3d7bff, "2.4GHz": 0xffb13d, "6GHz": 0xb36bff };
+function ring(dbm) {
+  const r = R(dbm), g = new THREE.BufferGeometry().setFromPoints(
+    Array.from({ length: 97 }, (_, i) => new THREE.Vector3(Math.cos(i / 96 * 6.283) * r, 0.02, Math.sin(i / 96 * 6.283) * r)));
+  links.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x1b2a44 })));
+  const lbl = label(`${dbm} dBm`, "#6f86a8"); lbl.position.set(r + 0.1, 0.25, 0); lbl.scale.set(1.4, 0.35, 1); links.add(lbl);
+}
+function label(text, color) {
+  const c = document.createElement("canvas"); c.width = 256; c.height = 64;
+  const x = c.getContext("2d"); x.fillStyle = color; x.font = "26px Menlo"; x.textAlign = "center"; x.fillText(text, 128, 40);
+  return new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthWrite: false, transparent: true }));
+}
+[-50, -70, -90].forEach(ring);
+const macDot = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.12, 0.42), new THREE.MeshBasicMaterial({ color: 0xcfe3ff }));
+macDot.position.y = 0.3; links.add(macDot);
+const macLbl = label("MACBOOK", "#cfe3ff"); macLbl.position.set(0, 0.8, 0); macLbl.scale.set(2, 0.5, 1); links.add(macLbl);
+// connected link (live)
+const apNode = new THREE.Mesh(new THREE.SphereGeometry(0.28, 20, 12), new THREE.MeshBasicMaterial({ color: 0x39ff7a }));
+links.add(apNode);
+const apLbl = label("ROUTER", "#39ff7a"); apLbl.scale.set(2.4, 0.6, 1); links.add(apLbl);
+const apBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1, 10, 1, true),
+  new THREE.MeshBasicMaterial({ color: 0x39ff7a, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending }));
+links.add(apBeam);
+const PK = 40, pkGeo = new THREE.BufferGeometry(), pkPos = new Float32Array(PK * 3);
+pkGeo.setAttribute("position", new THREE.BufferAttribute(pkPos, 3));
+links.add(new THREE.Points(pkGeo, new THREE.PointsMaterial({ color: 0x39ff7a, size: 0.12, transparent: true,
+  blending: THREE.AdditiveBlending, depthWrite: false })));
+let others = new THREE.Group(); links.add(others);
+const link = { rssi: -70, rssiS: -70, snr: 20, tx: 0, ch: null };
+
+function updateNetworks(nets) {
+  links.remove(others); others = new THREE.Group(); links.add(others);
+  // drop the scan entry that is most likely our own connected link (same channel, closest RSSI)
+  let own = -1, best = 99;
+  nets.forEach((n, i) => { const dd = Math.abs(n.rssi_dbm - link.rssi);
+    if (n.channel === link.ch && dd < best && dd <= 6) { best = dd; own = i; } });
+  const rest = nets.filter((_, i) => i !== own).sort((a, b) => (a.channel ?? 0) - (b.channel ?? 0));
+  rest.forEach((n, i) => {
+    const ang = 0.5 + (i + 1) / (rest.length + 1) * (6.283 - 1.0), r = R(n.rssi_dbm);
+    const x = Math.cos(ang) * r, z = Math.sin(ang) * r, col = BAND_COL[n.band] ?? 0x6f86a8;
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.1 + 0.15 * (1 - (r - 1.2) / 7.5), 14, 8),
+      new THREE.MeshBasicMaterial({ color: col })); dot.position.set(x, 0.3, z); others.add(dot);
+    const ln = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0.3, 0), new THREE.Vector3(x, 0.3, z)]),
+      new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.15 + 0.5 * (1 - (r - 1.2) / 7.5) }));
+    others.add(ln);
+    const lb = label(`${n.rssi_dbm} dBm · ch${n.channel}`, "#" + new THREE.Color(col).getHexString());
+    lb.position.set(x, 0.7, z); lb.scale.set(1.5, 0.38, 1); others.add(lb);
+  });
+  $("netcount").textContent = `· görünen ağ: ${nets.length}${own >= 0 ? " (1'i bağlı olunan)" : ""}`;
+}
+function animateLinks(t, dt) {
+  link.rssiS += (link.rssi - link.rssiS) * Math.min(1, dt * 4);
+  const r = R(link.rssiS), q = Math.min(1, Math.max(0, link.snr / 40));
+  apNode.position.set(r, 0.3, 0); apLbl.position.set(r, 0.95, 0);
+  apBeam.scale.set(0.6 + 2.5 * q, r, 0.6 + 2.5 * q); apBeam.position.set(r / 2, 0.3, 0); apBeam.rotation.z = Math.PI / 2;
+  apBeam.material.opacity = 0.35 + 0.55 * q;
+  const speed = 0.2 + Math.min(1.5, link.tx / 600);
+  for (let i = 0; i < PK; i++) { const s = (i / PK + t * speed) % 1;
+    pkPos[i*3] = r * (1 - s); pkPos[i*3+1] = 0.3 + 0.05 * Math.sin(i + t * 5); pkPos[i*3+2] = 0.05 * Math.cos(i * 3 + t * 4); }
+  pkGeo.attributes.position.needsUpdate = true;
+}
+const activityObjs = () => [ell, pts, beam, glow, ...scene.children.filter(o => o.isGroup && o !== links)];
+function setMode(m) {
+  const L = m === "links"; links.visible = L; tiles.visible = !L;
+  if (L) { camera.position.set(0, 13, 11); controls.target.set(0, 0, 0); }
+  else { controls.target.set(0, 0.8, 0); setView("persp"); }
+  controls.update();
+  activityObjs().forEach(o => o.visible = !L);
+  $("linknote").style.display = L ? "" : "none"; $("note").style.display = L ? "none" : "";
+  $("banner").style.display = L ? "none" : "";
+  try { localStorage.setItem("mode", m); } catch {}
+}
+document.querySelectorAll("#view button[data-m]").forEach(b => b.onclick = () => setMode(b.dataset.m));
+
 // ---------- live data ----------
 const st = { stateCol: new THREE.Color(0x39ff7a), atten: 0, attenS: 0, sceneCol: new THREE.Color(0x39ff7a), states: [], intensity: 0, target: 0, jolt: 0, lastRssi: null, times: [], rssi: [] };
 const $ = id => document.getElementById(id);
@@ -172,6 +257,8 @@ const COLORS = { LOW: "#39ff7a", MEDIUM: "#ffb13d", HIGH: "#ff4d5e", WARMUP: "#6
 const es = new EventSource("/stream");
 es.onmessage = ev => {
   const d = JSON.parse(ev.data);
+  if (d.type === "scan") { updateNetworks(d.networks); return; }
+  if (d.associated) { link.rssi = d.rssi_dbm; link.snr = d.rssi_dbm - d.noise_dbm; link.tx = d.tx_rate_mbps; link.ch = d.channel; }
   if (d.error) { $("err").textContent = "ERROR: " + d.error; return; }
   $("err").textContent = d.associated ? "" : "Wi-Fi bağlı değil (rssiValue()==0)";
   $("src").textContent = d.source || "LIVE";
@@ -258,6 +345,8 @@ function resize() {
   camera.aspect = w / h; camera.updateProjectionMatrix();
 }
 addEventListener("resize", resize); resize();
+let m0 = "activity"; try { m0 = localStorage.getItem("mode") || m0; } catch {}
+setMode(m0);
 
 const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
@@ -306,6 +395,7 @@ renderer.setAnimationLoop(() => {
   pGeo.attributes.position.needsUpdate = true;
   pts.material.color.copy(st.sceneCol);
 
+  if (links.visible) animateLinks(t, dt);
   controls.update();
   renderer.render(scene, camera);
 });
