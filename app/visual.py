@@ -31,6 +31,7 @@ class Hub:
         self.cond = threading.Condition()
         self.events: list[str] = []
         self.n = 0
+        self.last_link: tuple[int, int] | None = None
 
     def publish(self, payload: dict) -> None:
         with self.cond:
@@ -72,6 +73,21 @@ def scanner(hub: Hub, period_s: float = 5.0) -> None:
         time.sleep(period_s)
 
 
+def devices_loop(hub: Hub, lan: bool, router_distance: float | None, period_s: float = 3.0) -> None:
+    from app.devices import BleReader, lan_devices, wall_estimate
+    ble = BleReader()
+    ble.start()
+    while True:
+        payload = {"type": "devices", "ble": ble.read()}
+        if lan:
+            payload["lan"] = lan_devices()
+        if router_distance and hub.last_link:
+            rssi, ch = hub.last_link
+            payload["wall"] = wall_estimate(rssi, ch, router_distance)
+        hub.publish(payload)
+        time.sleep(period_s)
+
+
 def collector(hub: Hub, hz: float, replay: Path | None = None) -> None:
     meter = ActivityMeter(hz, calibration=load_calibration())
     rules = load_rules()
@@ -89,6 +105,8 @@ def collector(hub: Hub, hz: float, replay: Path | None = None) -> None:
                 meter = ActivityMeter(hz, calibration=load_calibration())
                 rules = load_rules()
                 clf = LiveClassifier(hz, rules) if rules else None
+            if s.associated and s.channel:
+                hub.last_link = (s.rssi_dbm, s.channel)
             act = meter.update(s.rssi_dbm) if s.associated else None
             state = clf.update(s.rssi_dbm) if clf and s.associated else None
             now = time.monotonic()
@@ -147,11 +165,16 @@ def main(argv=None) -> None:
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--no-browser", action="store_true")
     ap.add_argument("--replay", type=Path, help="play a recorded CSV instead of live Wi-Fi")
+    ap.add_argument("--lan", action="store_true",
+                    help="list devices from this Mac's ARP cache (use only on your own network)")
+    ap.add_argument("--router-distance", type=float, metavar="M",
+                    help="measured Mac-router distance in metres -> excess path-loss estimate")
     a = ap.parse_args(argv)
     hub = Hub()
     threading.Thread(target=collector, args=(hub, a.hz, a.replay), daemon=True).start()
     if not a.replay:
         threading.Thread(target=scanner, args=(hub,), daemon=True).start()
+        threading.Thread(target=devices_loop, args=(hub, a.lan, a.router_distance), daemon=True).start()
     srv = ThreadingHTTPServer(("127.0.0.1", a.port), handler_for(hub))
     url = f"http://127.0.0.1:{a.port}"
     print(f"RF activity view: {url}  (Ctrl-C to stop)")
