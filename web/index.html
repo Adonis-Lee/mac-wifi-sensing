@@ -19,6 +19,8 @@
   .row b { color:var(--txt); font-weight:500; }
   #level { font-size:20px; font-weight:700; margin:10px 0 4px; }
   #bar { font-size:16px; letter-spacing:1px; }
+  #state { font-size:20px; font-weight:700; margin:10px 0 2px; }
+  #timeline { width:100%; height:18px; display:block; margin:6px 0 2px; border-radius:3px; }
   #spark { width:100%; height:60px; display:block; margin-top:8px; }
   #note { bottom:16px; left:16px; right:16px; max-width:760px; color:var(--dim); font-size:11.5px; }
   #note b { color:var(--amber); }
@@ -34,7 +36,7 @@
 <canvas id="gl"></canvas>
 
 <div id="hud" class="panel">
-  <h1>MAC WI-FI · RSSI-ONLY</h1>
+  <h1>MAC WI-FI · RSSI-ONLY · <span id="src">--</span></h1>
   <div class="big"><span id="rssi">--</span> <small>dBm</small></div>
   <div class="row">noise <b id="noise">--</b></div>
   <div class="row">SNR <b id="snr">--</b></div>
@@ -42,6 +44,10 @@
   <div class="row">PHY <b id="phy">--</b></div>
   <div class="row">rate (actual) <b id="rate">--</b></div>
   <div class="row">read / proc <b id="lat">--</b></div>
+  <div id="state">STATE: --</div>
+  <div class="row">confidence <b id="conf">--</b></div>
+  <canvas id="timeline"></canvas>
+  <div class="row" style="font-size:11px"><span style="color:#39ff7a">■ ABSENT</span><span style="color:#ffb13d">■ STILL</span><span style="color:#ff4d5e">■ ACTIVE</span></div>
   <div id="level">RF ACTIVITY: --</div>
   <div id="bar">░░░░░░░░░░</div>
   <div class="row">rolling std (3 s) <b id="std">--</b></div>
@@ -59,7 +65,7 @@
 <div id="note" class="panel">
   <b>Bu bir insan görüntüsü değildir.</b> Tek bir link (router → MacBook) üzerindeki gerçek RSSI
   değişiminin şematik gösterimidir. Router/Mac konumları ve mesafe temsilidir, ölçek yoktur.
-  Karo parlaklığı <b>konum değil</b>, link genelindeki aktivite şiddetidir. Kalibrasyon varsa eşikler boş oda kaydından türetilir; yoksa skor son 2 dk'ya göre görelidir. Kişi sayısı, konum, silüet ve poz bu
+  Karo parlaklığı <b>konum değil</b>, link genelindeki aktivite şiddetidir. STATE kural tabanlıdır; eşikler boş oda + birkaç ev kaydından türetildi (geçici, tek kişi/oda). Doğruluğu deneysel olarak doğrulanması gerekiyor. Kişi sayısı, konum, silüet ve poz bu
   RSSI-only sistemde mümkün değil.
 </div>
 
@@ -141,7 +147,7 @@ const pts = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0x39ff7a, s
 scene.add(pts);
 
 // ---------- live data ----------
-const st = { intensity: 0, target: 0, jolt: 0, lastRssi: null, times: [], rssi: [] };
+const st = { states: [], intensity: 0, target: 0, jolt: 0, lastRssi: null, times: [], rssi: [] };
 const $ = id => document.getElementById(id);
 const COLORS = { LOW: "#39ff7a", MEDIUM: "#ffb13d", HIGH: "#ff4d5e", WARMUP: "#6f86a8" };
 
@@ -150,6 +156,8 @@ es.onmessage = ev => {
   const d = JSON.parse(ev.data);
   if (d.error) { $("err").textContent = "ERROR: " + d.error; return; }
   $("err").textContent = d.associated ? "" : "Wi-Fi bağlı değil (rssiValue()==0)";
+  $("src").textContent = d.source || "LIVE";
+  $("src").style.color = (d.source || "").startsWith("REPLAY") ? "#ffb13d" : "#39ff7a";
   $("rssi").textContent = d.associated ? d.rssi_dbm : "--";
   $("noise").textContent = d.noise_dbm + " dBm";
   $("snr").textContent = d.associated ? (d.rssi_dbm - d.noise_dbm) + " dB" : "--";
@@ -177,8 +185,27 @@ es.onmessage = ev => {
     $("mode").textContent = a.mode === "calibrated" ? "calibrated (empty room)" : "relative (uncalibrated)";
     $("mode").style.color = a.mode === "calibrated" ? "#39ff7a" : "#ffb13d";
   }
+  if (d.state) {
+    const S = d.state, name = S.state === "PRESENT_STILL" ? "PRESENT (STILL)" : S.state;
+    $("state").textContent = "STATE: " + name;
+    $("state").style.color = STATE_COLORS[S.state];
+    $("conf").textContent = (S.confidence * 100).toFixed(0) + " %";
+    st.states.push([d.t_mono, S.state]);
+  }
+  while (st.states.length && st.states[0][0] < d.t_mono - 60) st.states.shift();
+  drawTimeline(d.t_mono);
   drawSpark();
 };
+const STATE_COLORS = { ABSENT: "#39ff7a", PRESENT_STILL: "#ffb13d", ACTIVE: "#ff4d5e" };
+function drawTimeline(now) {
+  const c = $("timeline"), x = c.getContext("2d"), w = c.width = c.clientWidth * 2, h = c.height = 36;
+  x.fillStyle = "#0d1830"; x.fillRect(0, 0, w, h);
+  for (let i = 0; i < st.states.length; i++) {
+    const [t, s] = st.states[i], t2 = i + 1 < st.states.length ? st.states[i + 1][0] : now;
+    x.fillStyle = STATE_COLORS[s];
+    x.fillRect((t - now + 60) / 60 * w, 0, Math.max(1, (t2 - t) / 60 * w + 1), h);
+  }
+}
 es.onerror = () => { $("err").textContent = "Sunucu bağlantısı yok (python -m app.visual çalışıyor mu?)"; };
 
 function drawSpark() {

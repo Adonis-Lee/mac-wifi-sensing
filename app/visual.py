@@ -1,10 +1,12 @@
 """3D RF activity view in the browser, driven by real CoreWLAN RSSI (Server-Sent Events).
 
-Example: python -m app.visual --hz 5   then open http://127.0.0.1:8765
+Live:   python -m app.visual --hz 5
+Replay: python -m app.visual --replay data/raw/<file>.csv   (recorded real data, original timing)
 """
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import threading
 import time
@@ -14,7 +16,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from app.activity import ActivityMeter, load_calibration
-from app.backend import MacRSSIBackend
+from app.backend import MacRSSIBackend, RssiSample
+from app.classifier import LiveClassifier, load_rules
 
 WEB = Path(__file__).resolve().parent.parent / "web" / "index.html"
 
@@ -35,13 +38,36 @@ class Hub:
             self.cond.notify_all()
 
 
-def collector(hub: Hub, hz: float) -> None:
+def replay_stream(path: Path, speed: float = 1.0):
+    """Yield recorded samples with their original spacing, looping forever."""
+    with path.open() as f:
+        rows = list(csv.DictReader(f))
+    while True:
+        prev = None
+        for r in rows:
+            s = RssiSample(timestamp=r["timestamp"], t_mono=float(r["t_mono"]), seq=int(r["seq"]),
+                           interface=r["interface"], rssi_dbm=int(r["rssi_dbm"]), noise_dbm=int(r["noise_dbm"]),
+                           channel=int(r["channel"]) if r["channel"] else None, band=r["band"],
+                           phy_mode=r["phy_mode"], tx_rate_mbps=float(r["tx_rate_mbps"]),
+                           ssid=r["ssid"] or None, read_ms=float(r["read_ms"]))
+            if prev is not None:
+                time.sleep(max(0.0, (s.t_mono - prev) / speed))
+            prev = s.t_mono
+            yield s
+
+
+def collector(hub: Hub, hz: float, replay: Path | None = None) -> None:
     meter = ActivityMeter(hz, calibration=load_calibration())
+    rules = load_rules()
+    clf = LiveClassifier(hz, rules) if rules else None
     try:
-        for s in MacRSSIBackend().stream(hz):
+        source = replay_stream(replay) if replay else MacRSSIBackend().stream(hz)
+        for s in source:
             t0 = time.perf_counter()
             act = meter.update(s.rssi_dbm) if s.associated else None
-            hub.publish({**asdict(s), "associated": s.associated, "activity": act,
+            state = clf.update(s.rssi_dbm) if clf and s.associated else None
+            hub.publish({**asdict(s), "associated": s.associated, "activity": act, "state": state,
+                         "source": f"REPLAY {replay.name}" if replay else "LIVE",
                          "proc_ms": (time.perf_counter() - t0) * 1000})
     except Exception as e:
         hub.publish({"error": str(e)})
@@ -89,9 +115,10 @@ def main(argv=None) -> None:
     ap.add_argument("--hz", type=float, default=5)
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--no-browser", action="store_true")
+    ap.add_argument("--replay", type=Path, help="play a recorded CSV instead of live Wi-Fi")
     a = ap.parse_args(argv)
     hub = Hub()
-    threading.Thread(target=collector, args=(hub, a.hz), daemon=True).start()
+    threading.Thread(target=collector, args=(hub, a.hz, a.replay), daemon=True).start()
     srv = ThreadingHTTPServer(("127.0.0.1", a.port), handler_for(hub))
     url = f"http://127.0.0.1:{a.port}"
     print(f"RF activity view: {url}  (Ctrl-C to stop)")
