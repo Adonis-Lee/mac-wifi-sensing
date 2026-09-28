@@ -24,6 +24,13 @@
   #spark { width:100%; height:60px; display:block; margin-top:8px; }
   #note { bottom:16px; left:16px; right:16px; max-width:760px; color:var(--dim); font-size:11.5px; }
   #note b { color:var(--amber); }
+  #banner { position:fixed; top:16px; left:50%; transform:translateX(-50%); display:flex; gap:14px;
+            align-items:center; padding:10px 22px; border-radius:12px; background:var(--panel);
+            border:2px solid var(--line); transition:border-color .4s, box-shadow .4s; }
+  #bicon { font-size:40px; line-height:1; }
+  #btext { font-size:28px; font-weight:800; letter-spacing:.06em; }
+  #bsub { font-size:10px; color:var(--dim); }
+  @media (max-width:900px){ #banner{top:auto; bottom:140px} }
   #view { top:16px; right:16px; display:flex; gap:6px; padding:6px; }
   #view button { background:#0d1830; color:var(--txt); border:1px solid var(--line); border-radius:6px;
                  padding:6px 10px; font:inherit; cursor:pointer; }
@@ -58,6 +65,8 @@
   <div id="err"></div>
 </div>
 
+<div id="banner"><div id="bicon">◯</div><div><div id="btext">--</div>
+  <div id="bsub">status icon · not a detected figure</div></div></div>
 <div id="view" class="panel">
   <button data-v="persp">3D</button><button data-v="top">Üstten</button>
 </div>
@@ -138,6 +147,14 @@ const ell = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 20),
 ell.scale.set(LX, 1.1, 1.1); ell.position.y = 1.0; scene.add(ell);
 const basePos = ell.geometry.attributes.position.array.slice();
 
+// link beam: brightness = measured attenuation vs empty baseline (whole link, not a position)
+const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2 * LX, 12, 1, true),
+  new THREE.MeshBasicMaterial({ color: 0x39ff7a, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending }));
+beam.rotation.z = Math.PI / 2; beam.position.y = 1.0; scene.add(beam);
+const glow = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 2 * LX, 16, 1, true),
+  new THREE.MeshBasicMaterial({ color: 0x39ff7a, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending, depthWrite: false }));
+glow.rotation.z = Math.PI / 2; glow.position.y = 1.0; scene.add(glow);
+
 // particles travelling along the link
 const P = 400, pGeo = new THREE.BufferGeometry(), pPos = new Float32Array(P * 3), pSeed = new Float32Array(P * 3);
 for (let i = 0; i < P; i++) { pSeed[i*3] = Math.random(); pSeed[i*3+1] = Math.random()*6.28; pSeed[i*3+2] = Math.random(); }
@@ -147,7 +164,7 @@ const pts = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: 0x39ff7a, s
 scene.add(pts);
 
 // ---------- live data ----------
-const st = { states: [], intensity: 0, target: 0, jolt: 0, lastRssi: null, times: [], rssi: [] };
+const st = { stateCol: new THREE.Color(0x39ff7a), atten: 0, attenS: 0, sceneCol: new THREE.Color(0x39ff7a), states: [], intensity: 0, target: 0, jolt: 0, lastRssi: null, times: [], rssi: [] };
 const $ = id => document.getElementById(id);
 const COLORS = { LOW: "#39ff7a", MEDIUM: "#ffb13d", HIGH: "#ff4d5e", WARMUP: "#6f86a8" };
 
@@ -191,6 +208,11 @@ es.onmessage = ev => {
     $("state").style.color = STATE_COLORS[S.state];
     $("conf").textContent = (S.confidence * 100).toFixed(0) + " %";
     st.states.push([d.t_mono, S.state]);
+    const col = STATE_COLORS[S.state];
+    $("btext").textContent = name; $("btext").style.color = col;
+    $("bicon").textContent = S.state === "ABSENT" ? "◯" : S.state === "ACTIVE" ? "🏃" : "🧍";
+    $("banner").style.borderColor = col; $("banner").style.boxShadow = `0 0 30px ${col}55`;
+    st.stateCol.set(col); st.atten = Math.min(1, S.shift / 6);
   }
   while (st.states.length && st.states[0][0] < d.t_mono - 60) st.states.shift();
   drawTimeline(d.t_mono);
@@ -234,6 +256,14 @@ renderer.setAnimationLoop(() => {
   st.intensity += (st.target - st.intensity) * Math.min(1, dt * 2);
   st.jolt *= Math.exp(-dt * 3);
   const I = st.intensity, J = Math.min(1, st.jolt);
+  st.sceneCol.lerp(st.stateCol, Math.min(1, dt * 3));
+  st.attenS += (st.atten - st.attenS) * Math.min(1, dt * 3);
+  const A = st.attenS;
+  beam.material.opacity = 0.9 - 0.75 * A + 0.1 * Math.sin(t * 20) * A;
+  beam.material.color.copy(st.sceneCol);
+  glow.material.color.copy(st.sceneCol);
+  glow.material.opacity = 0.18 + 0.25 * A * (0.6 + 0.4 * Math.sin(t * 6));
+  glow.scale.set(1 + 2.5 * A, 1, 1 + 2.5 * A);
 
   // tiles: ripple out from link axis; amplitude = activity, uniform along the link
   for (let k = 0; k < N * N; k++) {
@@ -241,7 +271,7 @@ renderer.setAnimationLoop(() => {
     const wave = 0.5 + 0.5 * Math.sin(r * 2.2 - t * (2 + 4 * I));
     const reach = Math.exp(-r / (1.2 + 5 * I));
     const b = 0.08 + reach * (0.25 * wave * (0.3 + I) + 0.6 * I + 0.4 * J);
-    col.copy(dim).lerp(hot, Math.min(1, b)); if (I > 0.6) col.lerp(red, (I - 0.6) * 0.6);
+    col.copy(dim).lerp(st.sceneCol, Math.min(1, b));
     tiles.setColorAt(k, col);
   }
   tiles.instanceColor.needsUpdate = true;
@@ -254,7 +284,7 @@ renderer.setAnimationLoop(() => {
     pos[i] = bx; pos[i+1] = by * n; pos[i+2] = bz * n;
   }
   ell.geometry.attributes.position.needsUpdate = true;
-  ell.material.color.copy(blue).lerp(hot, I * 0.8);
+  ell.material.color.copy(blue).lerp(st.sceneCol, 0.3 + 0.6 * Math.max(I, A));
   ell.material.opacity = 0.25 + 0.4 * I;
   ell.rotation.x = t * 0.1;
 
@@ -265,7 +295,7 @@ renderer.setAnimationLoop(() => {
     pPos[i*3] = -LX + s * 2 * LX; pPos[i*3+1] = 1 + Math.sin(a) * rad; pPos[i*3+2] = Math.cos(a) * rad;
   }
   pGeo.attributes.position.needsUpdate = true;
-  pts.material.color.copy(hot).lerp(red, Math.max(0, I - 0.5));
+  pts.material.color.copy(st.sceneCol);
 
   controls.update();
   renderer.render(scene, camera);
