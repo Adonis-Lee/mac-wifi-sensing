@@ -913,8 +913,11 @@ function resize() {
   if (typeof composer !== "undefined") { composer.setSize(w, h); composer.setPixelRatio(Math.min(devicePixelRatio, 2)); }
 }
 addEventListener("resize", resize); resize();
+// deep links: #activity, #links, #settings (e.g. for sharing a view)
 let m0 = "activity"; try { m0 = localStorage.getItem("mode") || m0; } catch {}
+if (location.hash === "#links" || location.hash === "#activity") m0 = location.hash.slice(1);
 setMode(m0);
+if (location.hash === "#settings") setTimeout(openSettings, 300);
 
 const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
