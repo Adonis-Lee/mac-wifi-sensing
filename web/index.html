@@ -45,7 +45,9 @@
   <div id="level">RF ACTIVITY: --</div>
   <div id="bar">░░░░░░░░░░</div>
   <div class="row">rolling std (3 s) <b id="std">--</b></div>
-  <div class="row">quiet floor <b id="floor">--</b></div>
+  <div class="row">threshold <b id="floor">--</b></div>
+  <div class="row">mean shift <b id="shift">--</b></div>
+  <div class="row">mode <b id="mode">--</b></div>
   <canvas id="spark"></canvas>
   <div id="err"></div>
 </div>
@@ -57,8 +59,7 @@
 <div id="note" class="panel">
   <b>Bu bir insan görüntüsü değildir.</b> Tek bir link (router → MacBook) üzerindeki gerçek RSSI
   değişiminin şematik gösterimidir. Router/Mac konumları ve mesafe temsilidir, ölçek yoktur.
-  Karo parlaklığı <b>konum değil</b>, link genelindeki aktivite şiddetidir. Aktivite skoru kalibre
-  edilmemiştir (son 2 dk'nın en sakin dönemine göre göreli). Kişi sayısı, konum, silüet ve poz bu
+  Karo parlaklığı <b>konum değil</b>, link genelindeki aktivite şiddetidir. Kalibrasyon varsa eşikler boş oda kaydından türetilir; yoksa skor son 2 dk'ya göre görelidir. Kişi sayısı, konum, silüet ve poz bu
   RSSI-only sistemde mümkün değil.
 </div>
 
@@ -171,7 +172,10 @@ es.onmessage = ev => {
     $("bar").textContent = "▓".repeat(n) + "░".repeat(10 - n);
     $("bar").style.color = COLORS[a.level];
     $("std").textContent = a.std_db.toFixed(2) + " dB";
-    $("floor").textContent = a.floor_db.toFixed(2) + " dB";
+    $("floor").textContent = a.threshold_db.toFixed(2) + " dB";
+    $("shift").textContent = a.mean_shift_db == null ? "--" : a.mean_shift_db.toFixed(2) + " dB";
+    $("mode").textContent = a.mode === "calibrated" ? "calibrated (empty room)" : "relative (uncalibrated)";
+    $("mode").style.color = a.mode === "calibrated" ? "#39ff7a" : "#ffb13d";
   }
   drawSpark();
 };

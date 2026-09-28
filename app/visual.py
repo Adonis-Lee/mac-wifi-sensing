@@ -13,7 +13,7 @@ from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from app.activity import ActivityMeter
+from app.activity import ActivityMeter, load_calibration
 from app.backend import MacRSSIBackend
 
 WEB = Path(__file__).resolve().parent.parent / "web" / "index.html"
@@ -36,7 +36,7 @@ class Hub:
 
 
 def collector(hub: Hub, hz: float) -> None:
-    meter = ActivityMeter(hz)
+    meter = ActivityMeter(hz, calibration=load_calibration())
     try:
         for s in MacRSSIBackend().stream(hz):
             t0 = time.perf_counter()
