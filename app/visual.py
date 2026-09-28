@@ -17,9 +17,9 @@ from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from app.activity import ActivityMeter, load_calibration
+from app.activity import CAL as CAL_PATH, ActivityMeter, load_calibration
 from app.backend import MacRSSIBackend, RssiSample
-from app.classifier import LiveClassifier, load_rules
+from app.classifier import RULES as RULES_PATH, LiveClassifier, load_rules
 
 WEB = Path(__file__).resolve().parent.parent / "web" / "index.html"
 
@@ -62,12 +62,19 @@ def collector(hub: Hub, hz: float, replay: Path | None = None) -> None:
     meter = ActivityMeter(hz, calibration=load_calibration())
     rules = load_rules()
     clf = LiveClassifier(hz, rules) if rules else None
+    files_stamp = tuple(p.stat().st_mtime if p.exists() else 0 for p in (CAL_PATH, RULES_PATH))
     c0 = os.times()
     perf = {"t": time.monotonic(), "cpu": c0.user + c0.system, "cpu_pct": 0.0, "rss_mb": 0.0}
     try:
         source = replay_stream(replay) if replay else MacRSSIBackend().stream(hz)
         for s in source:
             t0 = time.perf_counter()
+            stamp = tuple(p.stat().st_mtime if p.exists() else 0 for p in (CAL_PATH, RULES_PATH))
+            if stamp != files_stamp:  # calibration/rules changed on disk -> hot reload
+                files_stamp = stamp
+                meter = ActivityMeter(hz, calibration=load_calibration())
+                rules = load_rules()
+                clf = LiveClassifier(hz, rules) if rules else None
             act = meter.update(s.rssi_dbm) if s.associated else None
             state = clf.update(s.rssi_dbm) if clf and s.associated else None
             now = time.monotonic()

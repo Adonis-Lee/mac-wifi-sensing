@@ -65,7 +65,20 @@ def main(argv=None) -> int:
     print(f"Suggested mean-shift threshold:             {cal['suggested_mean_shift_db']:.2f} dB")
     for w in warnings(q):
         print("WARN", w)
-    print(f"Saved {CAL}\n" + "=" * 36)
+    print(f"Saved {CAL}")
+    # re-fit rules: presence from this calibration, motion threshold from labelled STILL/ACTIVE recordings
+    from app.classifier import LABEL_TO_STATE, RULES, fit
+    raw = path.parent
+    labelled = [p for p in sorted(raw.glob("*.csv")) if p != path and p.with_suffix(".meta.json").exists()
+                and LABEL_TO_STATE.get(json.loads(p.with_suffix(".meta.json").read_text()).get("label"))
+                in ("PRESENT_STILL", "ACTIVE")]
+    states = {LABEL_TO_STATE[json.loads(p.with_suffix(".meta.json").read_text())["label"]] for p in labelled}
+    if states == {"PRESENT_STILL", "ACTIVE"}:
+        RULES.write_text(json.dumps(fit([path, *labelled]), indent=2))
+        print(f"Rules re-fitted ({len(labelled)} labelled recordings) -> {RULES.name}. Live view picks it up.")
+    else:
+        print("No STILL + ACTIVE recordings yet; rules not fitted (live view shows activity only).")
+    print("=" * 36)
     return 0
 
 
