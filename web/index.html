@@ -204,7 +204,14 @@ es.onmessage = ev => {
     $("mode").textContent = a.mode === "calibrated" ? "calibrated (empty room)" : "relative (uncalibrated)";
     $("mode").style.color = a.mode === "calibrated" ? "#39ff7a" : "#ffb13d";
   }
+  if (!d.state && d.associated) {
+    $("btext").textContent = "KALİBRASYON GEREKLİ"; $("btext").style.color = "#ffb13d";
+    $("bicon").textContent = "⚙";
+    $("bsub").textContent = "python -m app.calibrate  ·  Mac sabit, oda boş";
+    $("state").textContent = "STATE: kalibrasyon yok"; $("state").style.color = "#6f86a8";
+  }
   if (d.state) {
+    $("bsub").textContent = "status icon · not a detected figure";
     const S = d.state, name = S.state === "PRESENT_STILL" ? "PRESENT (STILL)" : S.state;
     $("state").textContent = "STATE: " + name;
     $("state").style.color = STATE_COLORS[S.state];
