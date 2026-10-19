@@ -31,7 +31,7 @@ class Hub:
         self.cond = threading.Condition()
         self.events: list[str] = []
         self.n = 0
-        self.last_link: tuple[int, int] | None = None
+        self.last_link: tuple[int, int, str | None] | None = None  # (rssi_dbm, channel, band)
 
     def publish(self, payload: dict) -> None:
         with self.cond:
@@ -82,8 +82,8 @@ def devices_loop(hub: Hub, lan: bool, router_distance: float | None, period_s: f
         if lan:
             payload["lan"] = lan_devices()
         if router_distance and hub.last_link:
-            rssi, ch = hub.last_link
-            payload["wall"] = wall_estimate(rssi, ch, router_distance)
+            rssi, ch, band = hub.last_link
+            payload["wall"] = wall_estimate(rssi, ch, router_distance, band=band)
         hub.publish(payload)
         time.sleep(period_s)
 
@@ -106,7 +106,7 @@ def collector(hub: Hub, hz: float, replay: Path | None = None) -> None:
                 rules = load_rules()
                 clf = LiveClassifier(hz, rules) if rules else None
             if s.associated and s.channel:
-                hub.last_link = (s.rssi_dbm, s.channel)
+                hub.last_link = (s.rssi_dbm, s.channel, s.band)
             act = meter.update(s.rssi_dbm) if s.associated else None
             state = clf.update(s.rssi_dbm) if clf and s.associated else None
             now = time.monotonic()
