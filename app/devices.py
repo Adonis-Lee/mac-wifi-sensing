@@ -66,16 +66,24 @@ def free_space_loss_db(distance_m: float, freq_mhz: float) -> float:
     return 20 * math.log10(max(distance_m, 0.1)) + 20 * math.log10(freq_mhz) - 27.55
 
 
-CH_MHZ = lambda ch: 2407 + 5 * ch if ch <= 14 else 5000 + 5 * ch
+def channel_mhz(channel: int, band: str | None = None) -> int:
+    """Channel centre frequency. band is the helper's "2.4GHz" / "5GHz" / "6GHz"; channel numbers
+    overlap between 5 and 6 GHz, so without a band the number alone decides 2.4 vs 5 GHz."""
+    if band == "6GHz":
+        return 5935 if channel == 2 else 5950 + 5 * channel  # ch 2: extra 20 MHz channel below ch 1
+    if band == "2.4GHz" or (band != "5GHz" and channel <= 14):
+        return 2484 if channel == 14 else 2407 + 5 * channel
+    return 5000 + 5 * channel
 
 
-def wall_estimate(rssi_dbm: float, channel: int, distance_m: float,
+def wall_estimate(rssi_dbm: float, channel: int, distance_m: float, band: str | None = None,
                   eirp_dbm: float = 20.0, eirp_unc_db: float = 6.0) -> dict:
     """Excess loss over free space. eirp is an assumption (typical home router), hence the range.
     Per-wall loss at 5 GHz ~3-6 dB drywall, ~10-15 dB brick/concrete (literature ranges)."""
-    expected = eirp_dbm - free_space_loss_db(distance_m, CH_MHZ(channel))
+    freq = channel_mhz(channel, band)
+    expected = eirp_dbm - free_space_loss_db(distance_m, freq)
     excess = expected - rssi_dbm
     lo, hi = excess - eirp_unc_db, excess + eirp_unc_db
-    return {"expected_dbm": expected, "excess_db": excess, "excess_range_db": [lo, hi],
+    return {"expected_dbm": expected, "excess_db": excess, "excess_range_db": [lo, hi], "freq_mhz": freq,
             "drywall_equiv": [max(0, math.floor(lo / 6)), max(0, math.ceil(hi / 3))],
             "assumed_eirp_dbm": eirp_dbm, "distance_m": distance_m}

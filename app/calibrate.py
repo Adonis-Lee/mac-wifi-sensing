@@ -13,6 +13,7 @@ from pathlib import Path
 
 import numpy as np
 
+from app.activity import STD_FLOOR_DB
 from app.log import record
 from app.quality import analyze, load, warnings
 
@@ -34,7 +35,8 @@ def derive(rssi: np.ndarray, hz: float, window_s: float = 3.0) -> dict:
         "rolling_std_p95_db": float(np.percentile(rs, 95)),
         "rolling_std_max_db": float(rs.max()),
         # candidate thresholds; validated against STILL / WALKING recordings in the next step
-        "suggested_activity_std_db": float(np.percentile(rs, 95) * 1.5),
+        # floored: a quiet room with 1 dB steps can give p95 == 0 (constant RSSI)
+        "suggested_activity_std_db": float(max(STD_FLOOR_DB, np.percentile(rs, 95) * 1.5)),
         "suggested_mean_shift_db": float(max(1.0, 3 * rssi.std(ddof=1))),
     }
 

@@ -22,6 +22,14 @@ from app.backend import MacRSSIBackend, RssiSample
 from app.classifier import RULES as RULES_PATH, LiveClassifier, load_rules
 
 WEB = Path(__file__).resolve().parent.parent / "web" / "index.html"
+LOCAL_HOSTS = {"127.0.0.1", "localhost"}
+
+
+def host_allowed(host: str) -> bool:
+    """Exact loopback Host, port stripped. A DNS-rebinding page reaches 127.0.0.1 under its own
+    name (e.g. localhost.attacker.example), so a prefix match is not enough."""
+    name, _, port = host.partition(":")
+    return name.lower() in LOCAL_HOSTS and (port == "" or port.isdigit())
 
 
 class Hub:
@@ -31,7 +39,7 @@ class Hub:
         self.cond = threading.Condition()
         self.events: list[str] = []
         self.n = 0
-        self.last_link: tuple[int, int] | None = None
+        self.last_link: tuple[int, int, str | None] | None = None  # (rssi_dbm, channel, band)
 
     def publish(self, payload: dict) -> None:
         with self.cond:
@@ -82,8 +90,8 @@ def devices_loop(hub: Hub, lan: bool, router_distance: float | None, period_s: f
         if lan:
             payload["lan"] = lan_devices()
         if router_distance and hub.last_link:
-            rssi, ch = hub.last_link
-            payload["wall"] = wall_estimate(rssi, ch, router_distance)
+            rssi, ch, band = hub.last_link
+            payload["wall"] = wall_estimate(rssi, ch, router_distance, band=band)
         hub.publish(payload)
         time.sleep(period_s)
 
@@ -106,7 +114,7 @@ def collector(hub: Hub, hz: float, replay: Path | None = None) -> None:
                 rules = load_rules()
                 clf = LiveClassifier(hz, rules) if rules else None
             if s.associated and s.channel:
-                hub.last_link = (s.rssi_dbm, s.channel)
+                hub.last_link = (s.rssi_dbm, s.channel, s.band)
             act = meter.update(s.rssi_dbm) if s.associated else None
             state = clf.update(s.rssi_dbm) if clf and s.associated else None
             now = time.monotonic()
@@ -174,6 +182,8 @@ def handler_for(hub: Hub, job: "CalibrationJob | None" = None):
             pass
 
         def do_GET(self):
+            if not host_allowed(self.headers.get("Host", "")):
+                return self.send_error(403)
             if self.path == "/":
                 body = WEB.read_bytes()
                 self.send_response(200)
@@ -216,7 +226,7 @@ def handler_for(hub: Hub, job: "CalibrationJob | None" = None):
             # without a CORS preflight, which this server never answers)
             origin = self.headers.get("Origin", "")
             host = self.headers.get("Host", "")
-            if (origin and origin != f"http://{host}") or not host.startswith(("127.0.0.1", "localhost")) \
+            if (origin and origin != f"http://{host}") or not host_allowed(host) \
                     or not self.headers.get("Content-Type", "").startswith("application/json"):
                 return self._json(403, {"error": "forbidden"})
             if job is None:
