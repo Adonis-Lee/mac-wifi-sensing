@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 
 CAL = Path(__file__).resolve().parent.parent / "data" / "calibration.json"
+STD_FLOOR_DB = 0.3  # 1 dB RSSI quantization makes std < ~0.3 dB meaningless; also keeps thresholds > 0
 
 
 def load_calibration(path: Path = CAL) -> dict | None:
@@ -22,10 +23,10 @@ def load_calibration(path: Path = CAL) -> dict | None:
 
 class ActivityMeter:
     def __init__(self, hz: float, short_s: float = 3.0, history_s: float = 120.0,
-                 floor_db: float = 0.3, calibration: dict | None = None):
+                 floor_db: float = STD_FLOOR_DB, calibration: dict | None = None):
         self.win = deque(maxlen=max(3, int(short_s * hz)))
         self.stds = deque(maxlen=max(10, int(history_s * hz)))
-        self.floor_db = floor_db  # 1 dB RSSI quantization makes std < ~0.3 dB meaningless
+        self.floor_db = floor_db
         self.cal = calibration
 
     def update(self, rssi: float) -> dict:
@@ -37,7 +38,7 @@ class ActivityMeter:
         out = {"std_db": std, "deriv_energy": d_energy}
 
         if self.cal:
-            thr = self.cal["suggested_activity_std_db"]
+            thr = max(self.floor_db, self.cal["suggested_activity_std_db"])  # old files may hold 0.0
             shift = abs(float(arr.mean()) - self.cal["baseline_mean_dbm"])
             ratio = max(std / thr, shift / self.cal["suggested_mean_shift_db"])
             warm = len(arr) == self.win.maxlen

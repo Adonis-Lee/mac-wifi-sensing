@@ -12,6 +12,7 @@ from pathlib import Path
 
 import numpy as np
 
+from app.activity import STD_FLOOR_DB
 from app.quality import load
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -64,7 +65,8 @@ def fit(files: list[Path], skip_s: float = 5, window_s: float = 3) -> dict:
 
 def classify(f: dict, rules: dict) -> tuple[str, float]:
     """Return (state, confidence 0..1). Confidence = margin from the deciding threshold."""
-    p = max(f["std"] / rules["presence_std_db"], f["shift"] / rules["presence_shift_db"])
+    presence_std = max(STD_FLOOR_DB, rules["presence_std_db"])  # rules from old calibrations may hold 0.0
+    p = max(f["std"] / presence_std, f["shift"] / rules["presence_shift_db"])
     if p <= 1:
         return "ABSENT", float(np.clip(1 - p, 0.05, 1) ** 0.5)
     # dE (sample-to-sample change) only: std also rises with slow drift while standing still
